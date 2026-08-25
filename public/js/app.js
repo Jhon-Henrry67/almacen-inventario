@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
         categories: [],
         deletingArticleId: null,
         editingCategoryId: null,
-        editingSku: null,
         refillingArticleId: null,
         refillingCurrent: 0,
         role: null,
@@ -765,15 +764,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const data = {
             nombre: document.getElementById('art-nombre').value.trim(),
+            sku: document.getElementById('art-sku').value.trim(),
             categoria_id: parseInt(document.getElementById('art-categoria').value, 10),
             cantidad_disponible: parseInt(document.getElementById('art-cantidad').value, 10),
             descripcion: document.getElementById('art-descripcion').value.trim()
         };
-
-        // Al editar se conserva el SKU actual; al crear el servidor genera uno automáticamente
-        if (id && state.editingSku) {
-            data.sku = state.editingSku;
-        }
 
         // Foto del producto: nueva imagen, eliminación (''), o no tocarla
         if (state.articleImageData) {
@@ -821,8 +816,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.success) {
                 const art = res.data;
                 document.getElementById('art-id').value = art.id;
-                state.editingSku = art.sku;
                 document.getElementById('art-nombre').value = art.nombre;
+                document.getElementById('art-sku').value = art.sku || '';
                 document.getElementById('art-categoria').value = art.categoria_id;
                 document.getElementById('art-cantidad').value = art.cantidad_disponible;
                 document.getElementById('art-descripcion').value = art.descripcion || '';
@@ -870,7 +865,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetArticleForm() {
         document.getElementById('art-id').value = '';
-        state.editingSku = null;
         document.getElementById('article-form').reset();
         document.getElementById('art-cantidad').value = 0;
 

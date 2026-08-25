@@ -1702,9 +1702,9 @@ body.role-personal .topbar-actions {
 .inv-cell-info { min-width: 0; }
 
 .inv-thumb {
-    width: 42px;
-    height: 42px;
-    border-radius: var(--radius-sm);
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-md);
     object-fit: cover;
     flex-shrink: 0;
     border: 1px solid var(--border-color);
