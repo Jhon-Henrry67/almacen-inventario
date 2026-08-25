@@ -62,11 +62,11 @@ const PORT_BASE = parseInt(process.env.PORT, 10) || 5000;
 // Limpia fotos de artículos que ya no están referenciadas en la base de datos
 require('./routes/articulos').sweepOrphanImages();
 
-// Auto-elimina pedidos aceptados/cancelados después de 3 minutos
+// Auto-elimina pedidos aceptados/cancelados después de 10 minutos
 setInterval(() => {
     try {
         const result = db.prepare(
-            "DELETE FROM pedidos WHERE estado != 'Pendiente' AND fecha_actualizacion < datetime('now', '-3 minutes')"
+            "DELETE FROM pedidos WHERE estado != 'Pendiente' AND fecha_actualizacion < datetime('now', '-10 minutes')"
         ).run();
         if (result.changes > 0) {
             console.log(`🧹 ${result.changes} pedido(s) resuelto(s) eliminado(s) automáticamente.`);

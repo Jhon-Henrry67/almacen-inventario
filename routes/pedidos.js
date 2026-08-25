@@ -10,8 +10,8 @@ const { getClientIp } = require('../utils/ip');
 
 // ==========================================
 // 1. GET /api/pedidos - Listar todos los pedidos
-//    ?ip=192.168.1.50 -> solo pedidos Pendientes de ese equipo
-//    Sin ?ip -> todos los pendientes + aceptados/cancelados recientes (< 3 min)
+//    ?ip=X -> pedidos de ese equipo (pendientes + resueltos recientes < 10 min)
+//    Sin ?ip -> todos los pedidos (pendientes + resueltos recientes < 10 min) [Admin]
 // ==========================================
 router.get('/', (req, res, next) => {
     try {
@@ -27,8 +27,10 @@ router.get('/', (req, res, next) => {
                 FROM pedidos p
                 JOIN articulos a ON p.articulo_id = a.id
                 JOIN categorias c ON a.categoria_id = c.id
-                WHERE p.ip = ? AND p.estado = 'Pendiente'
-                ORDER BY p.fecha_pedido DESC
+                WHERE p.ip = ?
+                  AND (p.estado = 'Pendiente'
+                       OR (p.estado != 'Pendiente' AND p.fecha_actualizacion > datetime('now', '-10 minutes')))
+                ORDER BY CASE p.estado WHEN 'Pendiente' THEN 0 ELSE 1 END, p.fecha_pedido DESC
             `;
             params = [String(req.query.ip)];
         } else {
@@ -42,7 +44,7 @@ router.get('/', (req, res, next) => {
                 JOIN articulos a ON p.articulo_id = a.id
                 JOIN categorias c ON a.categoria_id = c.id
                 WHERE p.estado = 'Pendiente'
-                   OR (p.estado != 'Pendiente' AND p.fecha_actualizacion > datetime('now', '-3 minutes'))
+                   OR (p.estado != 'Pendiente' AND p.fecha_actualizacion > datetime('now', '-10 minutes'))
                 ORDER BY CASE p.estado WHEN 'Pendiente' THEN 0 ELSE 1 END, p.fecha_pedido DESC
             `;
             params = [];
