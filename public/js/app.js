@@ -28,7 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
         articleImageData: null,
         articleImageExisting: null,
         pedSearchTimeout: null,
-        searchTimeout: null
+        searchTimeout: null,
+        pedidosPollTimer: null
     };
 
     // --------------------------------------------------
@@ -91,6 +92,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         hideGate();
 
+        // Visibilidad inicial de botones
+        const btnStockPdf = document.querySelector('.btn-export-stock-pdf');
+        const btnPedidosPdf = document.querySelector('.btn-export-pedidos-pdf');
+        const btnAddArticle = document.getElementById('btn-open-add-modal');
+        if (role === 'personal') {
+            if (btnStockPdf) btnStockPdf.style.display = 'none';
+            if (btnPedidosPdf) btnPedidosPdf.style.display = 'none';
+            if (btnAddArticle) btnAddArticle.style.display = 'none';
+        } else {
+            if (btnStockPdf) btnStockPdf.style.display = '';
+            if (btnPedidosPdf) btnPedidosPdf.style.display = 'none';
+            if (btnAddArticle) btnAddArticle.style.display = 'none';
+        }
+
         // El Personal siempre aterriza en Pedir Artículo
         if (role === 'personal') {
             if (window.location.hash !== '#pedidos') {
@@ -149,6 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Cerrar Sesión: limpiar rol/clave y volver al gate
         document.getElementById('btn-logout').addEventListener('click', () => {
+            clearInterval(state.pedidosPollTimer);
+            state.pedidosPollTimer = null;
             sessionStorage.removeItem('ap_role');
             sessionStorage.removeItem('ap_pin');
             window.location.hash = '';
@@ -191,6 +208,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         state.currentView = targetView;
+
+        // Botones PDF según la vista activa
+        const btnStockPdf = document.querySelector('.btn-export-stock-pdf');
+        const btnPedidosPdf = document.querySelector('.btn-export-pedidos-pdf');
+        const btnAddArticle = document.getElementById('btn-open-add-modal');
+        if (btnStockPdf) btnStockPdf.style.display = (targetView === 'inventario' || targetView === 'dashboard') ? '' : 'none';
+        if (btnPedidosPdf) btnPedidosPdf.style.display = (targetView === 'admin-pedidos') ? '' : 'none';
+        if (btnAddArticle) btnAddArticle.style.display = (targetView === 'inventario') ? '' : 'none';
+
+        // Polling en tiempo real: vista del personal refresca solicitudes cada 5s
+        // Admin-pedidos también se refresca para ver cambios en tiempo real
+        clearInterval(state.pedidosPollTimer);
+        state.pedidosPollTimer = null;
+        if (targetView === 'pedidos' && state.role === 'personal') {
+            state.pedidosPollTimer = setInterval(() => { renderMisSolicitudes(); }, 5000);
+        } else if (targetView === 'admin-pedidos' && state.role === 'admin') {
+            state.pedidosPollTimer = setInterval(() => { loadPedidos(); }, 5000);
+        }
 
         // Actualizar Items del Nav
         document.querySelectorAll('.nav-item').forEach(item => {
@@ -242,8 +277,11 @@ document.addEventListener('DOMContentLoaded', () => {
             Components.openModal('article-modal');
         });
 
-        // Botón Exportar PDF
+        // Botón Exportar PDF Stock
         document.getElementById('btn-export-pdf').addEventListener('click', exportToPDF);
+
+        // Botón Exportar PDF Pedidos
+        document.getElementById('btn-export-pedidos-pdf').addEventListener('click', exportPedidosPDF);
 
 
 
@@ -1028,6 +1066,107 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Error al generar PDF:', error);
             Components.showToast('Error al generar el reporte PDF.', 'error');
+        }
+    }
+
+    // --------------------------------------------------
+    // Exportar PDF de Pedidos / Solicitudes
+    // --------------------------------------------------
+    async function exportPedidosPDF() {
+        try {
+            Components.showToast('Generando reporte de pedidos...', 'success');
+
+            const res = await API.getPedidos();
+            if (!res.success || !res.data.length) {
+                Components.showToast('No hay pedidos para exportar.', 'warning');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) {
+                Components.showToast('No se pudo cargar la librería PDF. Verifica tu conexión a internet y recarga la página.', 'error');
+                return;
+            }
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+            doc.setFontSize(18);
+            doc.setTextColor(44, 62, 80);
+            doc.text('Reporte de Pedidos - Solicitudes de Artículos', 14, 20);
+
+            doc.setFontSize(10);
+            doc.setTextColor(127, 140, 141);
+            const now = new Date();
+            const fechaStr = now.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            doc.text(`Generado el: ${fechaStr}`, 14, 28);
+
+            const totalPedidos = res.data.length;
+            const pendientes = res.data.filter(p => p.estado === 'Pendiente').length;
+            const entregados = res.data.filter(p => p.estado === 'Entregado').length;
+            const cancelados = res.data.filter(p => p.estado === 'Cancelado').length;
+            doc.setFontSize(11);
+            doc.setTextColor(44, 62, 80);
+            doc.text(`Total: ${totalPedidos} | Pendientes: ${pendientes} | Aceptados: ${entregados} | Cancelados: ${cancelados}`, 14, 36);
+
+            const tableBody = res.data.map((p, index) => [
+                index + 1,
+                p.sku,
+                p.articulo_nombre,
+                p.solicitante || '—',
+                p.cantidad,
+                p.estado,
+                p.fecha_pedido
+            ]);
+
+            doc.autoTable({
+                startY: 42,
+                head: [['#', 'SKU', 'Artículo', 'Solicitante', 'Cant.', 'Estado', 'Fecha']],
+                body: tableBody,
+                styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak', font: 'helvetica' },
+                headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                columnStyles: {
+                    0: { cellWidth: 12 },
+                    1: { cellWidth: 28 },
+                    2: { cellWidth: 55 },
+                    3: { cellWidth: 40 },
+                    4: { cellWidth: 18, halign: 'center' },
+                    5: { cellWidth: 25, halign: 'center' },
+                    6: { cellWidth: 55 }
+                },
+                didParseCell: function(data) {
+                    if (data.section === 'body' && data.column.index === 5) {
+                        const val = data.cell.raw;
+                        if (val === 'Entregado') {
+                            data.cell.styles.textColor = [16, 185, 129];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else if (val === 'Cancelado') {
+                            data.cell.styles.textColor = [239, 68, 68];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else {
+                            data.cell.styles.textColor = [245, 158, 11];
+                        }
+                    }
+                },
+                margin: { top: 42, right: 14, bottom: 20, left: 14 },
+                didDrawPage: function(data) {
+                    const pageCount = doc.internal.getNumberOfPages();
+                    doc.setFontSize(8);
+                    doc.setTextColor(148, 163, 184);
+                    doc.text(
+                        `Sistema de Gestión de Almacén - Página ${data.pageNumber} de ${pageCount}`,
+                        doc.internal.pageSize.getWidth() / 2,
+                        doc.internal.pageSize.getHeight() - 8,
+                        { align: 'center' }
+                    );
+                }
+            });
+
+            doc.save(`reporte_pedidos_${now.toISOString().slice(0, 10)}.pdf`);
+            Components.showToast('Reporte de pedidos descargado exitosamente.', 'success');
+
+        } catch (error) {
+            console.error('Error al generar PDF de pedidos:', error);
+            Components.showToast('Error al generar el reporte de pedidos.', 'error');
         }
     }
 
