@@ -6,26 +6,8 @@ const express = require('express');
 const router = express.Router();
 const { getClientIp } = require('../utils/ip');
 const { createSession, destroySession, getSession } = require('../middleware/session');
-const rateLimit = require('express-rate-limit');
 
 const PIN_MIN_LENGTH = 8;
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-
-const loginAttempts = new Map();
-
-const loginLimiter = rateLimit({
-    windowMs: LOGIN_WINDOW_MS,
-    max: MAX_LOGIN_ATTEMPTS,
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: (req, res) => {
-        res.status(429).json({
-            success: false,
-            message: 'Demasiados intentos de acceso. Espera 15 minutos.'
-        });
-    }
-});
 
 function validatePinComplexity(pin) {
     if (typeof pin !== 'string') return false;
@@ -40,7 +22,7 @@ router.get('/whoami', (req, res) => {
     res.json({ success: true, ip: validFormat ? ip : '0.0.0.0' });
 });
 
-router.post('/login', loginLimiter, (req, res) => {
+router.post('/login', (req, res) => {
     const { clave } = req.body || {};
     const expected = process.env.ADMIN_PIN;
 
@@ -59,19 +41,7 @@ router.post('/login', loginLimiter, (req, res) => {
         });
     }
 
-    const clientIp = getClientIp(req);
-    const attemptsKey = clientIp;
-    const attempts = loginAttempts.get(attemptsKey) || { count: 0, firstAttempt: Date.now() };
-
-    if (Date.now() - attempts.firstAttempt > LOGIN_WINDOW_MS) {
-        attempts.count = 0;
-        attempts.firstAttempt = Date.now();
-    }
-
     if (String(clave) === expected) {
-        attempts.count = 0;
-        loginAttempts.set(attemptsKey, attempts);
-
         const sessionToken = createSession('admin');
         return res.json({
             success: true,
@@ -80,23 +50,9 @@ router.post('/login', loginLimiter, (req, res) => {
         });
     }
 
-    attempts.count++;
-    loginAttempts.set(attemptsKey, attempts);
-
-    if (attempts.count >= MAX_LOGIN_ATTEMPTS) {
-        loginAttempts.delete(attemptsKey);
-        return res.status(429).json({
-            success: false,
-            message: 'Demasiados intentos fallidos. Bloqueado por 15 minutos.'
-        });
-    }
-
-    const remaining = MAX_LOGIN_ATTEMPTS - attempts.count;
     res.status(401).json({
         success: false,
-        message: remaining <= 2
-            ? `Clave incorrecta. Te quedan ${remaining} intento(s).`
-            : 'Clave de administrador incorrecta.'
+        message: 'Clave de administrador incorrecta.'
     });
 });
 
