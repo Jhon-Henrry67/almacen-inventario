@@ -1,19 +1,29 @@
 /**
- * Middleware de Autorización: restringe acciones exclusivas del administrador.
- * El frontend envía la clave en el encabezado 'x-admin-key'.
+ * Middleware de Autorización con Server-Side Sessions
+ * Valida tokens de sesión en lugar del PIN raw.
  */
 
-function requireAdmin(req, res, next) {
-    const key = req.get('x-admin-key') || '';
-    const expected = process.env.ADMIN_PIN || 'admin123';
+const { getSession } = require('./session');
 
-    if (!key || key !== expected) {
+function requireAdmin(req, res, next) {
+    const token = req.get('x-session-token') || '';
+
+    if (!token) {
         return res.status(401).json({
             success: false,
-            message: 'Acceso restringido: solo el administrador puede realizar esta acción.'
+            message: 'Acceso restringido: sesión no válida.'
         });
     }
 
+    const session = getSession(token);
+    if (!session || session.role !== 'admin') {
+        return res.status(401).json({
+            success: false,
+            message: 'Acceso restringido: sesión expirada o inválida.'
+        });
+    }
+
+    req.sessionRole = session.role;
     next();
 }
 

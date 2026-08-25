@@ -82,7 +82,7 @@ router.post('/', requireAdmin, validateCategory, (req, res, next) => {
         if (existing) {
             return res.status(400).json({
                 success: false,
-                message: `La categoría '${nombre}' ya está registrada.`
+                message: 'Ya existe una categoría con ese nombre.'
             });
         }
 
@@ -122,7 +122,7 @@ router.put('/:id', requireAdmin, validateCategory, (req, res, next) => {
         if (nameConflict) {
             return res.status(400).json({
                 success: false,
-                message: `Ya existe otra categoría con el nombre '${nombre}'.`
+                message: 'Ya existe otra categoría con ese nombre.'
             });
         }
 
@@ -160,7 +160,7 @@ router.delete('/:id', requireAdmin, (req, res, next) => {
         if (articleCount.count > 0) {
             return res.status(400).json({
                 success: false,
-                message: `No se puede eliminar la categoría '${category.nombre}' porque tiene ${articleCount.count} artículo(s) asignado(s). Reasigne o elimine los artículos primero.`
+                message: `No se puede eliminar la categoría porque tiene ${articleCount.count} artículo(s) asignado(s). Reasigne o elimine los artículos primero.`
             });
         }
 
@@ -168,7 +168,7 @@ router.delete('/:id', requireAdmin, (req, res, next) => {
 
         res.json({
             success: true,
-            message: `Categoría '${category.nombre}' eliminada correctamente.`
+            message: 'Categoría eliminada correctamente.'
         });
     } catch (error) {
         next(error);

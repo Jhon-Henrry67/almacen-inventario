@@ -6,12 +6,12 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 
-// Inicializar conexión a la base de datos
 const db = require('./config/database');
 
-// Importar rutas de la API
 const articulosRoutes = require('./routes/articulos');
 const categoriasRoutes = require('./routes/categorias');
 const dashboardRoutes = require('./routes/dashboard');
@@ -22,13 +22,58 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Configuración de Middlewares globales
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.set('trust proxy', 1);
 
-// Servir archivos estáticos del Frontend
-// El código (html/js/css) siempre se revalida para que el navegador nunca use versiones viejas en caché
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+            imgSrc: ["'self'", "data:", "blob:", "https:"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+            connectSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            frameAncestors: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"]
+        }
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+app.use(helmet.hidePoweredBy());
+app.use(helmet.ieNoOpen());
+app.use(helmet.noSniff());
+app.use(helmet.referrerPolicy({ policy: 'strict-origin-when-cross-origin' }));
+app.use(helmet.permissionsPolicy({
+    camera: [],
+    microphone: [],
+    geolocation: [],
+    payment: []
+}));
+
+const allowedOrigin = process.env.ALLOWED_ORIGIN || process.env.RENDER_EXTERNAL_URL || null;
+app.use(cors({
+    origin: allowedOrigin ? [allowedOrigin] : false,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'x-session-token'],
+    credentials: true
+}));
+
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+const globalLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Demasiadas peticiones. Intenta de nuevo.' }
+});
+app.use('/api/', globalLimiter);
+
 app.use(express.static(path.join(__dirname, 'public'), {
     setHeaders: (res, filePath) => {
         if (/\.(html|js|css)$/i.test(filePath)) {
@@ -37,14 +82,12 @@ app.use(express.static(path.join(__dirname, 'public'), {
     }
 }));
 
-// Registrar Endpoints de la API REST
 app.use('/api/articulos', articulosRoutes);
 app.use('/api/categorias', categoriasRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/auth', authRoutes);
 
-// Ruta por defecto para la SPA
 app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) {
         return next();
@@ -53,49 +96,38 @@ app.get('*', (req, res, next) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Middleware Centralizado de Manejo de Errores
 app.use(errorHandler);
 
-// Iniciar Servidor HTTP (si el puerto está ocupado, prueba con el siguiente)
-const PORT_BASE = parseInt(process.env.PORT, 10) || 5000;
-
-// Limpia fotos de artículos que ya no están referenciadas en la base de datos
 require('./routes/articulos').sweepOrphanImages();
 
-// Auto-elimina pedidos aceptados/cancelados después de 10 minutos
 setInterval(() => {
     try {
         const result = db.prepare(
             "DELETE FROM pedidos WHERE estado != 'Pendiente' AND fecha_actualizacion < datetime('now', '-10 minutes')"
         ).run();
         if (result.changes > 0) {
-            console.log(`🧹 ${result.changes} pedido(s) resuelto(s) eliminado(s) automáticamente.`);
+            console.log(`Limpieza: ${result.changes} pedido(s) resuelto(s) eliminado(s).`);
         }
     } catch (err) {
-        console.error('Error en limpieza automática de pedidos:', err.message);
+        console.error('Error en limpieza de pedidos:', err.message);
     }
 }, 60000);
 
 function iniciarServidor(puerto, intentos = 10) {
     const server = app.listen(puerto, () => {
-        console.log(`=======================================================`);
-        console.log(`📦 SISTEMA DE GESTIÓN DE ALMACÉN E INVENTARIO GENERAL`);
-        console.log(`🚀 Servidor ejecutándose en: http://localhost:${puerto}`);
-        console.log(`📊 Entorno: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`=======================================================`);
+        console.log(`Servidor activo en puerto ${puerto} [${process.env.NODE_ENV || 'development'}]`);
     });
 
     server.on('error', (err) => {
         if (err.code === 'EADDRINUSE' && intentos > 0) {
-            console.log(`⚠️  El puerto ${puerto} está ocupado. Probando con ${puerto + 1}...`);
             iniciarServidor(puerto + 1, intentos - 1);
         } else {
-            console.error('❌ No se pudo iniciar el servidor:', err.message);
+            console.error('No se pudo iniciar el servidor:', err.message);
             process.exit(1);
         }
     });
 }
 
-iniciarServidor(PORT_BASE);
+iniciarServidor(parseInt(process.env.PORT, 10) || 5000);
 
 module.exports = app;

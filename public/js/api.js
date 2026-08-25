@@ -5,25 +5,19 @@
 
 const API_BASE = '/api';
 
-const getAdminHeaders = () => {
+const getSessionHeaders = () => {
     const headers = {};
-    const pin = sessionStorage.getItem('ap_pin');
-    if (pin) headers['x-admin-key'] = pin;
+    const token = sessionStorage.getItem('ap_session');
+    if (token) headers['x-session-token'] = token;
     return headers;
 };
 
 const API = {
-    // --------------------------------------------------
-    // Dashboard Stats
-    // --------------------------------------------------
     async getDashboardStats() {
         const response = await fetch(`${API_BASE}/dashboard/stats`);
         return await response.json();
     },
 
-    // --------------------------------------------------
-    // Artículos
-    // --------------------------------------------------
     async getArticles(params = {}) {
         const query = new URLSearchParams();
         if (params.search) query.append('search', params.search);
@@ -39,39 +33,36 @@ const API = {
     },
 
     async getArticleById(id) {
-        const response = await fetch(`${API_BASE}/articulos/${id}`);
+        const response = await fetch(`${API_BASE}/articulos/${parseInt(id, 10)}`);
         return await response.json();
     },
 
     async createArticle(data) {
         const response = await fetch(`${API_BASE}/articulos`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+            headers: { 'Content-Type': 'application/json', ...getSessionHeaders() },
             body: JSON.stringify(data)
         });
         return await response.json();
     },
 
     async updateArticle(id, data) {
-        const response = await fetch(`${API_BASE}/articulos/${id}`, {
+        const response = await fetch(`${API_BASE}/articulos/${parseInt(id, 10)}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+            headers: { 'Content-Type': 'application/json', ...getSessionHeaders() },
             body: JSON.stringify(data)
         });
         return await response.json();
     },
 
     async deleteArticle(id) {
-        const response = await fetch(`${API_BASE}/articulos/${id}`, {
+        const response = await fetch(`${API_BASE}/articulos/${parseInt(id, 10)}`, {
             method: 'DELETE',
-            headers: getAdminHeaders()
+            headers: getSessionHeaders()
         });
         return await response.json();
     },
 
-    // --------------------------------------------------
-    // Categorías
-    // --------------------------------------------------
     async getCategories() {
         const response = await fetch(`${API_BASE}/categorias`);
         return await response.json();
@@ -80,32 +71,29 @@ const API = {
     async createCategory(data) {
         const response = await fetch(`${API_BASE}/categorias`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+            headers: { 'Content-Type': 'application/json', ...getSessionHeaders() },
             body: JSON.stringify(data)
         });
         return await response.json();
     },
 
     async updateCategory(id, data) {
-        const response = await fetch(`${API_BASE}/categorias/${id}`, {
+        const response = await fetch(`${API_BASE}/categorias/${parseInt(id, 10)}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+            headers: { 'Content-Type': 'application/json', ...getSessionHeaders() },
             body: JSON.stringify(data)
         });
         return await response.json();
     },
 
     async deleteCategory(id) {
-        const response = await fetch(`${API_BASE}/categorias/${id}`, {
+        const response = await fetch(`${API_BASE}/categorias/${parseInt(id, 10)}`, {
             method: 'DELETE',
-            headers: getAdminHeaders()
+            headers: getSessionHeaders()
         });
         return await response.json();
     },
 
-    // --------------------------------------------------
-    // Pedidos de Artículos
-    // --------------------------------------------------
     async getPedidos(params = {}) {
         const query = new URLSearchParams();
         if (params.ip) query.append('ip', params.ip);
@@ -116,37 +104,43 @@ const API = {
     async createPedido(data) {
         const response = await fetch(`${API_BASE}/pedidos`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+            headers: { 'Content-Type': 'application/json', ...getSessionHeaders() },
             body: JSON.stringify(data)
         });
         return await response.json();
     },
 
     async updatePedidoEstado(id, estado) {
-        const response = await fetch(`${API_BASE}/pedidos/${id}/estado`, {
+        const response = await fetch(`${API_BASE}/pedidos/${parseInt(id, 10)}/estado`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+            headers: { 'Content-Type': 'application/json', ...getSessionHeaders() },
             body: JSON.stringify({ estado })
         });
         return await response.json();
     },
 
     async deletePedido(id) {
-        const response = await fetch(`${API_BASE}/pedidos/${id}`, {
+        const response = await fetch(`${API_BASE}/pedidos/${parseInt(id, 10)}`, {
             method: 'DELETE',
-            headers: getAdminHeaders()
+            headers: getSessionHeaders()
         });
         return await response.json();
     },
 
-    // --------------------------------------------------
-    // Autenticación
-    // --------------------------------------------------
     async adminLogin(clave) {
         const response = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ clave })
+        });
+        return await response.json();
+    },
+
+    async adminLogout() {
+        const token = sessionStorage.getItem('ap_session');
+        const response = await fetch(`${API_BASE}/auth/logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-session-token': token || '' }
         });
         return await response.json();
     },

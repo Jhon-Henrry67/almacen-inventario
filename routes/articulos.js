@@ -38,7 +38,9 @@ function saveArticleImage(dataUrl, sku) {
 /** Elimina el archivo de foto de un artículo (best-effort, con reintentos por bloqueo de Windows) */
 function deleteArticleImage(imagenPath) {
     if (!imagenPath || !imagenPath.startsWith('/img/articulos/')) return;
+    const publicDir = path.resolve(__dirname, '..', 'public');
     const filePath = path.resolve(__dirname, '..', 'public', imagenPath);
+    if (!filePath.startsWith(publicDir)) return;
     const intento = (restantes) => {
         try {
             fs.unlinkSync(filePath);
@@ -272,7 +274,7 @@ router.post('/', requireAdmin, validateArticle, (req, res, next) => {
             if (existingSku) {
                 return res.status(400).json({
                     success: false,
-                    message: `El código SKU '${req.body.sku}' ya está registrado para otro artículo.`
+                    message: 'El código SKU ingresado ya está registrado para otro artículo.'
                 });
             }
         }
@@ -350,7 +352,7 @@ router.put('/:id', requireAdmin, validateArticle, (req, res, next) => {
         if (skuConflict) {
             return res.status(400).json({
                 success: false,
-                message: `El código SKU '${sku}' pertenece a otro artículo registrado.`
+                message: 'El código SKU ingresado pertenece a otro artículo registrado.'
             });
         }
 

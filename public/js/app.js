@@ -49,9 +49,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Restaurar sesión si existe, sino mostrar Pantalla de Acceso
         const savedRole = sessionStorage.getItem('ap_role');
-        if (savedRole === 'personal' || savedRole === 'admin') {
-            applyRole(savedRole);
+        if (savedRole === 'personal') {
+            applyRole('personal');
+        } else if (savedRole === 'admin' && sessionStorage.getItem('ap_session')) {
+            applyRole('admin');
         } else {
+            sessionStorage.removeItem('ap_role');
+            sessionStorage.removeItem('ap_session');
             showGate();
         }
     }
@@ -170,10 +174,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const pin = document.getElementById('gate-pin').value.trim();
             const errEl = document.getElementById('gate-error');
 
+            if (pin.length > 200) {
+                errEl.textContent = 'Credenciales inválidas.';
+                errEl.style.display = 'block';
+                return;
+            }
+
             try {
                 const res = await API.adminLogin(pin);
-                if (res.success) {
-                    sessionStorage.setItem('ap_pin', pin);
+                if (res.success && res.sessionToken) {
+                    sessionStorage.setItem('ap_session', res.sessionToken);
                     errEl.style.display = 'none';
                     applyRole('admin');
                 } else {
@@ -181,18 +191,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     errEl.style.display = 'block';
                 }
             } catch (error) {
-                console.error('Error al validar la clave:', error);
                 errEl.textContent = 'Error al conectar con el servidor.';
                 errEl.style.display = 'block';
             }
         });
 
         // Cerrar Sesión: limpiar rol/clave y volver al gate
-        document.getElementById('btn-logout').addEventListener('click', () => {
+        document.getElementById('btn-logout').addEventListener('click', async () => {
             clearInterval(state.pedidosPollTimer);
             state.pedidosPollTimer = null;
+            try { await API.adminLogout(); } catch (_) {}
             sessionStorage.removeItem('ap_role');
-            sessionStorage.removeItem('ap_pin');
+            sessionStorage.removeItem('ap_session');
             window.location.hash = '';
             window.location.reload();
         });
@@ -522,8 +532,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const formOptions = ['<option value="">-- Seleccionar Categoría --</option>'];
 
         state.categories.forEach(cat => {
-            filterOptions.push(`<option value="${cat.id}">${cat.nombre} (${cat.total_articulos})</option>`);
-            formOptions.push(`<option value="${cat.id}">${cat.nombre}</option>`);
+            filterOptions.push(`<option value="${cat.id}">${escapeHtml(cat.nombre)} (${escapeHtml(cat.total_articulos)})</option>`);
+            formOptions.push(`<option value="${cat.id}">${escapeHtml(cat.nombre)}</option>`);
         });
 
         filterSelect.innerHTML = filterOptions.join('');
@@ -609,32 +619,41 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderInventoryTable(items) {
         const tbody = document.getElementById('inventory-tbody');
         tbody.innerHTML = items.map(item => {
-            const thumbHtml = item.imagen
-                ? `<img src="${item.imagen}" class="m-card-thumb" alt="">`
+            const e = {
+                id: parseInt(item.id, 10),
+                nombre: escapeHtml(item.nombre),
+                sku: escapeHtml(item.sku),
+                cat: escapeHtml(item.categoria_nombre),
+                desc: escapeHtml(item.descripcion || ''),
+                cant: item.cantidad_disponible.toLocaleString(),
+                img: item.imagen || ''
+            };
+            const thumbHtml = e.img
+                ? `<img src="${e.img}" class="m-card-thumb" alt="">`
                 : `<div class="m-card-thumb-empty"><i class="fa-solid fa-box"></i></div>`;
             return `
-            <tr class="row-clickable" data-id="${item.id}" data-name="${item.nombre}" data-sku="${item.sku}" data-cantidad="${item.cantidad_disponible}" title="Clic para rellenar stock">
-                <td><span class="sku-code">${item.sku}</span></td>
+            <tr class="row-clickable" data-id="${e.id}" data-name="${item.nombre}" data-sku="${item.sku}" data-cantidad="${item.cantidad_disponible}" title="Clic para rellenar stock">
+                <td><span class="sku-code">${e.sku}</span></td>
                 <td>
                     <div class="inv-cell">
-                        ${item.imagen
-                            ? `<img src="${item.imagen}" class="inv-thumb" alt="">`
+                        ${e.img
+                            ? `<img src="${e.img}" class="inv-thumb" alt="">`
                             : `<div class="inv-thumb inv-thumb-empty"><i class="fa-solid fa-box"></i></div>`}
                         <div class="inv-cell-info">
-                            <div style="font-weight: 600;">${item.nombre}</div>
-                            <small class="text-muted">${item.descripcion ? item.descripcion.substring(0, 60) + '...' : 'Sin descripción'}</small>
+                            <div style="font-weight: 600;">${e.nombre}</div>
+                            <small class="text-muted">${e.desc ? e.desc.substring(0, 60) + '...' : 'Sin descripción'}</small>
                         </div>
                     </div>
                 </td>
-                <td><span class="badge badge-secondary"><i class="fa-solid fa-folder"></i> ${item.categoria_nombre}</span></td>
-                <td class="text-center"><strong>${item.cantidad_disponible.toLocaleString()}</strong></td>
+                <td><span class="badge badge-secondary"><i class="fa-solid fa-folder"></i> ${e.cat}</span></td>
+                <td class="text-center"><strong>${e.cant}</strong></td>
                 <td class="text-center">${Components.renderStockBadge(item.cantidad_disponible)}</td>
                 <td><small class="text-muted">${Components.formatDate(item.ultima_actualizacion)}</small></td>
                 <td class="text-right">
-                    <button class="btn btn-sm btn-outline btn-edit-article" data-id="${item.id}" title="Editar Artículo">
+                    <button class="btn btn-sm btn-outline btn-edit-article" data-id="${e.id}" title="Editar Artículo">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger btn-delete-article" data-id="${item.id}" data-name="${item.nombre}" data-sku="${item.sku}" title="Eliminar Artículo">
+                    <button class="btn btn-sm btn-danger btn-delete-article" data-id="${e.id}" data-name="${item.nombre}" data-sku="${item.sku}" title="Eliminar Artículo">
                         <i class="fa-solid fa-trash"></i>
                     </button>
                 </td>
@@ -643,23 +662,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="m-card-top">
                         ${thumbHtml}
                         <div class="m-card-title">
-                            <strong>${item.nombre}</strong>
-                            <small><span class="sku-code">${item.sku}</span></small>
+                            <strong>${e.nombre}</strong>
+                            <small><span class="sku-code">${e.sku}</span></small>
                         </div>
                     </div>
                     <div class="m-card-meta">
-                        <span><i class="fa-solid fa-folder"></i> ${item.categoria_nombre}</span>
-                        <span><strong>${item.cantidad_disponible.toLocaleString()}</strong> unid.</span>
+                        <span><i class="fa-solid fa-folder"></i> ${e.cat}</span>
+                        <span><strong>${e.cant}</strong> unid.</span>
                         ${Components.renderStockBadge(item.cantidad_disponible)}
                     </div>
                     <div class="m-card-actions">
-                        <button class="btn btn-sm btn-outline btn-edit-article" data-id="${item.id}">
+                        <button class="btn btn-sm btn-outline btn-edit-article" data-id="${e.id}">
                             <i class="fa-solid fa-pen-to-square"></i> Editar
                         </button>
-                        <button class="btn btn-sm btn-danger btn-delete-article" data-id="${item.id}" data-name="${item.nombre}" data-sku="${item.sku}">
+                        <button class="btn btn-sm btn-danger btn-delete-article" data-id="${e.id}" data-name="${item.nombre}" data-sku="${item.sku}">
                             <i class="fa-solid fa-trash"></i> Eliminar
                         </button>
-                        <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); document.querySelector('.row-clickable[data-id=\\'${item.id}\\']').click();" style="flex:0.6;">
+                        <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); document.querySelector('.row-clickable[data-id=\\'${e.id}\\']').click();" style="flex:0.6;">
                             <i class="fa-solid fa-boxes-stacked"></i> Rellenar
                         </button>
                     </div>
@@ -830,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadInventoryData();
                 if (state.currentView === 'dashboard') loadDashboardData();
             } else {
-                const msg = res.errors ? res.errors.join('<br>') : res.message;
+                const msg = res.errors ? res.errors.join(', ') : res.message;
                 Components.showToast(msg, 'error');
             }
         } catch (error) {
@@ -1244,17 +1263,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.getElementById('categories-tbody');
         if (!tbody) return;
 
-        tbody.innerHTML = state.categories.map(cat => `
+        tbody.innerHTML = state.categories.map(cat => {
+            const e = {
+                id: parseInt(cat.id, 10),
+                nombre: escapeHtml(cat.nombre),
+                desc: escapeHtml(cat.descripcion || ''),
+                totalArt: escapeHtml(cat.total_articulos),
+                totalUnid: escapeHtml(cat.total_unidades)
+            };
+            return `
             <tr>
-                <td><strong><i class="fa-solid fa-folder text-primary"></i> ${cat.nombre}</strong></td>
-                <td><small class="text-muted">${cat.descripcion || 'Sin descripción'}</small></td>
-                <td class="text-center"><span class="badge badge-secondary">${cat.total_articulos} artículos</span></td>
-                <td class="text-center"><strong>${cat.total_unidades} unid.</strong></td>
+                <td><strong><i class="fa-solid fa-folder text-primary"></i> ${e.nombre}</strong></td>
+                <td><small class="text-muted">${e.desc || 'Sin descripción'}</small></td>
+                <td class="text-center"><span class="badge badge-secondary">${e.totalArt} artículos</span></td>
+                <td class="text-center"><strong>${e.totalUnid} unid.</strong></td>
                 <td class="text-right">
-                    <button class="btn btn-sm btn-outline btn-edit-cat" data-id="${cat.id}" data-name="${cat.nombre}" data-desc="${cat.descripcion || ''}" title="Editar Categoría">
+                    <button class="btn btn-sm btn-outline btn-edit-cat" data-id="${e.id}" data-name="${cat.nombre}" data-desc="${cat.descripcion || ''}" title="Editar Categoría">
                         <i class="fa-solid fa-pen"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger btn-delete-cat" data-id="${cat.id}" title="Eliminar Categoría">
+                    <button class="btn btn-sm btn-danger btn-delete-cat" data-id="${e.id}" title="Eliminar Categoría">
                         <i class="fa-solid fa-trash"></i>
                     </button>
                 </td>
@@ -1263,25 +1290,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="m-card-top">
                         <div class="m-card-thumb-empty"><i class="fa-solid fa-folder"></i></div>
                         <div class="m-card-title">
-                            <strong>${cat.nombre}</strong>
-                            <small>${cat.descripcion || 'Sin descripción'}</small>
+                            <strong>${e.nombre}</strong>
+                            <small>${e.desc || 'Sin descripción'}</small>
                         </div>
                     </div>
                     <div class="m-card-meta">
-                        <span>${cat.total_articulos} artículos</span>
-                        <span><strong>${cat.total_unidades}</strong> unidades</span>
+                        <span>${e.totalArt} artículos</span>
+                        <span><strong>${e.totalUnid}</strong> unidades</span>
                     </div>
                     <div class="m-card-actions">
-                        <button class="btn btn-sm btn-outline btn-edit-cat" data-id="${cat.id}" data-name="${cat.nombre}" data-desc="${cat.descripcion || ''}">
+                        <button class="btn btn-sm btn-outline btn-edit-cat" data-id="${e.id}" data-name="${cat.nombre}" data-desc="${cat.descripcion || ''}">
                             <i class="fa-solid fa-pen"></i> Editar
                         </button>
-                        <button class="btn btn-sm btn-danger btn-delete-cat" data-id="${cat.id}">
+                        <button class="btn btn-sm btn-danger btn-delete-cat" data-id="${e.id}">
                             <i class="fa-solid fa-trash"></i> Eliminar
                         </button>
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `;}).join('');
 
         document.querySelectorAll('.btn-edit-cat').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1404,7 +1431,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.success) throw new Error(res.message);
 
             if (res.data.length === 0) {
-                cont.innerHTML = `<div class="ped-vacio">Sin resultados para "<b>${query}</b>"</div>`;
+                cont.innerHTML = `<div class="ped-vacio">Sin resultados para "<b>${escapeHtml(query)}</b>"</div>`;
                 return;
             }
 
@@ -1416,8 +1443,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         ? `<img src="${a.imagen}" alt="">`
                         : '<i class="fa-solid fa-box"></i>'}</span>
                     <span class="ped-item-info">
-                        <strong>${a.nombre}</strong>
-                        <small><span class="sku-code">${a.sku}</span></small>
+                        <strong>${escapeHtml(a.nombre)}</strong>
+                        <small><span class="sku-code">${escapeHtml(a.sku)}</span></small>
                     </span>
                     <span class="ped-item-stock">Stock: ${a.cantidad_disponible}</span>
                 </button>
@@ -1476,12 +1503,12 @@ document.addEventListener('DOMContentLoaded', () => {
         itemsEl.innerHTML = state.pedidoCart.map(it => `
             <div class="ped-cart-item">
                 <div class="ped-ci-info">
-                    <strong>${it.nombre}</strong>
-                    <small><span class="sku-code">${it.sku}</span> · Stock: ${it.stock}</small>
+                    <strong>${escapeHtml(it.nombre)}</strong>
+                    <small><span class="sku-code">${escapeHtml(it.sku)}</span> · Stock: ${escapeHtml(it.stock)}</small>
                 </div>
                 <div class="ped-ci-qty">
                     <button type="button" class="ped-ci-menos" data-id="${it.id}"><i class="fa-solid fa-minus"></i></button>
-                    <b>${it.cantidad}</b>
+                    <b>${escapeHtml(it.cantidad)}</b>
                     <button type="button" class="ped-ci-mas" data-id="${it.id}"><i class="fa-solid fa-plus"></i></button>
                 </div>
                 <button type="button" class="ped-ci-del" data-id="${it.id}" title="Quitar"><i class="fa-solid fa-xmark"></i></button>
@@ -1531,14 +1558,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="sol-top" style="display:flex;align-items:center;gap:10px;">
                             ${thumb}
                             <div style="flex:1;min-width:0;">
-                                <strong>${p.articulo_nombre}</strong>
-                                <div><small><span class="sku-code">${p.sku}</span></small></div>
+                                <strong>${escapeHtml(p.articulo_nombre)}</strong>
+                                <div><small><span class="sku-code">${escapeHtml(p.sku)}</span></small></div>
                             </div>
                             <span class="sol-badge ${m.cls}"><i class="fa-solid ${m.icon}"></i> ${m.label}</span>
                         </div>
                         <div class="sol-meta">
-                            <span><i class="fa-solid fa-user"></i> ${p.solicitante || '—'}</span>
-                            <span><i class="fa-solid fa-layer-group"></i> Cantidad: ${p.cantidad}</span>
+                            <span><i class="fa-solid fa-user"></i> ${escapeHtml(p.solicitante) || '—'}</span>
+                            <span><i class="fa-solid fa-layer-group"></i> Cantidad: ${escapeHtml(p.cantidad)}</span>
                             <span><i class="fa-regular fa-clock"></i> ${Components.formatDate(p.fecha_pedido)}</span>
                         </div>
                     </div>
@@ -1568,13 +1595,21 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.innerHTML = res.data.map(p => {
                 const badgeClass = p.estado === 'Pendiente' ? 'badge-warning'
                     : p.estado === 'Entregado' ? 'badge-success' : 'badge-danger';
-                const photo = p.imagen
-                    ? `<img src="${p.imagen}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;" alt="">`
+                const e = {
+                    id: parseInt(p.id, 10),
+                    artNombre: escapeHtml(p.articulo_nombre),
+                    sku: escapeHtml(p.sku),
+                    sol: escapeHtml(p.solicitante),
+                    cant: escapeHtml(p.cantidad),
+                    img: p.imagen || ''
+                };
+                const photo = e.img
+                    ? `<img src="${e.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;" alt="">`
                     : `<span style="display:inline-block;width:36px;height:36px;border-radius:6px;background:var(--bg-main);border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;text-align:center;line-height:36px;color:var(--text-muted);font-size:0.8rem;"><i class="fa-solid fa-box"></i></span>`;
-                const mPhoto = p.imagen
-                    ? `<img src="${p.imagen}" class="m-card-thumb" alt="">`
+                const mPhoto = e.img
+                    ? `<img src="${e.img}" class="m-card-thumb" alt="">`
                     : `<div class="m-card-thumb-empty"><i class="fa-solid fa-box"></i></div>`;
-                const badgeHtml = `<span class="badge ${badgeClass}"><i class="fa-solid fa-circle-info"></i> ${p.estado}</span>`;
+                const badgeHtml = `<span class="badge ${badgeClass}"><i class="fa-solid fa-circle-info"></i> ${escapeHtml(p.estado)}</span>`;
                 const actionsPendiente = p.estado === 'Pendiente' ? `
                     <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}" data-cantidad="${p.cantidad}" title="Entregar pedido">
                         <i class="fa-solid fa-check"></i>
@@ -1598,18 +1633,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="font-weight: 600; display:flex; align-items:center;">
                                 ${photo}
                                 <div>
-                                    <div>${p.articulo_nombre}</div>
-                                    <small><span class="sku-code">${p.sku}</span></small>
+                                    <div>${e.artNombre}</div>
+                                    <small><span class="sku-code">${e.sku}</span></small>
                                 </div>
                             </div>
                         </td>
-                        <td>${p.solicitante ? p.solicitante : '<span class="text-muted">—</span>'}</td>
-                        <td class="text-center"><strong>${p.cantidad}</strong></td>
+                        <td>${e.sol ? e.sol : '<span class="text-muted">—</span>'}</td>
+                        <td class="text-center"><strong>${e.cant}</strong></td>
                         <td class="text-center">${badgeHtml}</td>
                         <td><small class="text-muted">${Components.formatDate(p.fecha_pedido)}</small></td>
                         <td class="text-right">
                             ${actionsPendiente}
-                            <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${p.id}" title="Eliminar pedido">
+                            <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${e.id}" title="Eliminar pedido">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                         </td>
@@ -1618,19 +1653,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="m-card-top">
                                 ${mPhoto}
                                 <div class="m-card-title">
-                                    <strong>${p.articulo_nombre}</strong>
-                                    <small><span class="sku-code">${p.sku}</span></small>
+                                    <strong>${e.artNombre}</strong>
+                                    <small><span class="sku-code">${e.sku}</span></small>
                                 </div>
                                 ${badgeHtml}
                             </div>
                             <div class="m-card-meta">
-                                <span><i class="fa-solid fa-user"></i> ${p.solicitante || '—'}</span>
-                                <span><i class="fa-solid fa-layer-group"></i> Cant: ${p.cantidad}</span>
+                                <span><i class="fa-solid fa-user"></i> ${e.sol || '—'}</span>
+                                <span><i class="fa-solid fa-layer-group"></i> Cant: ${e.cant}</span>
                                 <span><i class="fa-regular fa-clock"></i> ${Components.formatDate(p.fecha_pedido)}</span>
                             </div>
                             <div class="m-card-actions">
                                 ${mActionsPendiente}
-                                <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${p.id}">
+                                <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${e.id}">
                                     <i class="fa-solid fa-trash"></i> Eliminar
                                 </button>
                             </div>

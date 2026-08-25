@@ -8,16 +8,20 @@ const db = require('../config/database');
 const { requireAdmin } = require('../middleware/adminAuth');
 const { getClientIp } = require('../utils/ip');
 
-// ==========================================
-// 1. GET /api/pedidos - Listar todos los pedidos
-//    ?ip=X -> pedidos de ese equipo (pendientes + resueltos recientes < 10 min)
-//    Sin ?ip -> todos los pedidos (pendientes + resueltos recientes < 10 min) [Admin]
-// ==========================================
+const MAX_PEDIDO_QTY = 10000;
+const MAX_SOLICITANTE_LENGTH = 100;
+
+function sanitize(str) {
+    if (typeof str !== 'string') return '';
+    return str.replace(/[<>]/g, '').trim();
+}
+
 router.get('/', (req, res, next) => {
     try {
         let sql, params;
 
         if (req.query.ip) {
+            const ip = String(req.query.ip).substring(0, 45);
             sql = `
                 SELECT
                     p.id, p.articulo_id, p.cantidad, p.solicitante, p.ip,
@@ -32,7 +36,7 @@ router.get('/', (req, res, next) => {
                        OR (p.estado != 'Pendiente' AND p.fecha_actualizacion > datetime('now', '-10 minutes')))
                 ORDER BY CASE p.estado WHEN 'Pendiente' THEN 0 ELSE 1 END, p.fecha_pedido DESC
             `;
-            params = [String(req.query.ip)];
+            params = [ip];
         } else {
             sql = `
                 SELECT
@@ -57,9 +61,6 @@ router.get('/', (req, res, next) => {
     }
 });
 
-// ==========================================
-// 2. POST /api/pedidos - Registrar un pedido
-// ==========================================
 router.post('/', (req, res, next) => {
     try {
         const { articulo_id, cantidad, solicitante = '' } = req.body;
@@ -71,6 +72,13 @@ router.post('/', (req, res, next) => {
         if (cantidad === undefined || cantidad === null || isNaN(Number(cantidad)) ||
             !Number.isInteger(Number(cantidad)) || Number(cantidad) <= 0) {
             errors.push('La cantidad debe ser un número entero mayor a 0.');
+        } else if (Number(cantidad) > MAX_PEDIDO_QTY) {
+            errors.push(`La cantidad no puede exceder ${MAX_PEDIDO_QTY.toLocaleString()} unidades.`);
+        }
+
+        const solStr = String(solicitante).trim();
+        if (solStr.length > MAX_SOLICITANTE_LENGTH) {
+            errors.push(`El nombre del solicitante no puede exceder ${MAX_SOLICITANTE_LENGTH} caracteres.`);
         }
 
         if (errors.length > 0) {
@@ -89,7 +97,7 @@ router.post('/', (req, res, next) => {
         db.prepare(`
             INSERT INTO pedidos (articulo_id, cantidad, solicitante, ip)
             VALUES (?, ?, ?, ?)
-        `).run(parseInt(articulo_id, 10), parseInt(cantidad, 10), String(solicitante).trim(), getClientIp(req));
+        `).run(parseInt(articulo_id, 10), parseInt(cantidad, 10), sanitize(solStr), getClientIp(req));
 
         res.status(201).json({
             success: true,
@@ -100,9 +108,6 @@ router.post('/', (req, res, next) => {
     }
 });
 
-// ==========================================
-// 3. PUT /api/pedidos/:id/estado - Entregar o cancelar pedido (Admin)
-// ==========================================
 router.put('/:id/estado', requireAdmin, (req, res, next) => {
     try {
         const { id } = req.params;
@@ -122,7 +127,7 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
         if (pedido.estado !== 'Pendiente') {
             return res.status(400).json({
                 success: false,
-                message: `El pedido ya fue marcado como '${pedido.estado}' y no puede modificarse.`
+                message: 'El pedido ya fue procesado y no puede modificarse.'
             });
         }
 
@@ -134,7 +139,7 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
             if (art.cantidad_disponible < pedido.cantidad) {
                 return res.status(400).json({
                     success: false,
-                    message: `Stock insuficiente para entregar. Disponible: ${art.cantidad_disponible} u., solicitado: ${pedido.cantidad} u.`
+                    message: 'Stock insuficiente para entregar este pedido.'
                 });
             }
 
@@ -148,7 +153,7 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
 
             return res.json({
                 success: true,
-                message: `Pedido entregado. Se descontaron ${pedido.cantidad} unidades de '${art.nombre}'.`
+                message: `Pedido entregado. Se descontaron ${pedido.cantidad} unidades.`
             });
         }
 
@@ -159,9 +164,6 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
     }
 });
 
-// ==========================================
-// 4. DELETE /api/pedidos/:id - Eliminar pedido del registro (Admin)
-// ==========================================
 router.delete('/:id', requireAdmin, (req, res, next) => {
     try {
         const result = db.prepare('DELETE FROM pedidos WHERE id = ?').run(req.params.id);

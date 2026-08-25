@@ -2,10 +2,14 @@
  * Componentes de Interfaz y Ayudantes de Renderizado (public/js/components.js)
  */
 
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const s = String(str);
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;' };
+    return s.replace(/[&<>"'/]/g, c => map[c]);
+}
+
 const Components = {
-    // --------------------------------------------------
-    // Sistema de Notificaciones Toast Flotantes
-    // --------------------------------------------------
     showToast(message, type = 'success', duration = 3500) {
         const container = document.getElementById('toast-container');
         if (!container) return;
@@ -17,10 +21,10 @@ const Components = {
         if (type === 'error') icon = 'fa-circle-xmark';
         if (type === 'warning') icon = 'fa-triangle-exclamation';
 
-        toast.innerHTML = `
-            <i class="fa-solid ${icon}"></i>
-            <span>${message}</span>
-        `;
+        toast.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+        const span = document.createElement('span');
+        span.textContent = String(message);
+        toast.appendChild(span);
 
         container.appendChild(toast);
 
@@ -32,9 +36,6 @@ const Components = {
         }, duration);
     },
 
-    // --------------------------------------------------
-    // Formateador de Fechas
-    // --------------------------------------------------
     formatDate(dateString) {
         if (!dateString) return '-';
         try {
@@ -47,13 +48,10 @@ const Components = {
                 minute: '2-digit'
             });
         } catch (e) {
-            return dateString;
+            return '-';
         }
     },
 
-    // --------------------------------------------------
-    // Renderizado de Insignias de Stock
-    // --------------------------------------------------
     renderStockBadge(stock, threshold = 10) {
         if (stock === 0) {
             return `<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Agotado</span>`;
@@ -64,9 +62,6 @@ const Components = {
         }
     },
 
-    // --------------------------------------------------
-    // Manejo de Modales
-    // --------------------------------------------------
     openModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
@@ -83,9 +78,6 @@ const Components = {
         }
     },
 
-    // --------------------------------------------------
-    // Renderizado de Lista de Alertas en Dashboard
-    // --------------------------------------------------
     renderAlertList(containerId, items) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -103,21 +95,18 @@ const Components = {
         container.innerHTML = items.map(item => `
             <div class="alert-item ${item.cantidad_disponible === 0 ? 'agotado' : ''}">
                 <div class="alert-item-info">
-                    <span class="alert-item-title">${item.nombre}</span>
-                    <span class="alert-item-sku">SKU: ${item.sku} • Categoría: ${item.categoria_nombre}</span>
+                    <span class="alert-item-title">${escapeHtml(item.nombre)}</span>
+                    <span class="alert-item-sku">SKU: ${escapeHtml(item.sku)} • Categoría: ${escapeHtml(item.categoria_nombre)}</span>
                 </div>
                 <div class="alert-item-stock">
                     <span class="badge ${item.cantidad_disponible === 0 ? 'badge-danger' : 'badge-warning'}">
-                        ${item.cantidad_disponible} unid. (${item.estado_alerta})
+                        ${escapeHtml(item.cantidad_disponible)} unid. (${escapeHtml(item.estado_alerta)})
                     </span>
                 </div>
             </div>
         `).join('');
     },
 
-    // --------------------------------------------------
-    // Renderizado de Barras de Distribución por Categoría
-    // --------------------------------------------------
     renderCategoryBars(containerId, categories) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -134,8 +123,8 @@ const Components = {
             return `
                 <div class="dist-bar-item">
                     <div class="dist-bar-header">
-                        <span><i class="fa-solid fa-folder text-primary"></i> ${cat.categoria}</span>
-                        <span><strong>${cat.total_unidades}</strong> unid. (${cat.total_articulos} tipos)</span>
+                        <span><i class="fa-solid fa-folder text-primary"></i> ${escapeHtml(cat.categoria)}</span>
+                        <span><strong>${escapeHtml(cat.total_unidades)}</strong> unid. (${escapeHtml(cat.total_articulos)} tipos)</span>
                     </div>
                     <div class="dist-bar-track">
                         <div class="dist-bar-fill" style="width: ${percentage}%;"></div>
