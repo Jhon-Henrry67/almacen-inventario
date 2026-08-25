@@ -62,6 +62,20 @@ const PORT_BASE = parseInt(process.env.PORT, 10) || 5000;
 // Limpia fotos de artículos que ya no están referenciadas en la base de datos
 require('./routes/articulos').sweepOrphanImages();
 
+// Auto-elimina pedidos aceptados/cancelados después de 3 minutos
+setInterval(() => {
+    try {
+        const result = db.prepare(
+            "DELETE FROM pedidos WHERE estado != 'Pendiente' AND fecha_actualizacion < datetime('now', '-3 minutes')"
+        ).run();
+        if (result.changes > 0) {
+            console.log(`🧹 ${result.changes} pedido(s) resuelto(s) eliminado(s) automáticamente.`);
+        }
+    } catch (err) {
+        console.error('Error en limpieza automática de pedidos:', err.message);
+    }
+}, 60000);
+
 function iniciarServidor(puerto, intentos = 10) {
     const server = app.listen(puerto, () => {
         console.log(`=======================================================`);

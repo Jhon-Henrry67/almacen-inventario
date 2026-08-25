@@ -10,30 +10,44 @@ const { getClientIp } = require('../utils/ip');
 
 // ==========================================
 // 1. GET /api/pedidos - Listar todos los pedidos
-//    ?ip=192.168.1.50 -> solo las solicitudes de ese equipo
+//    ?ip=192.168.1.50 -> solo pedidos Pendientes de ese equipo
+//    Sin ?ip -> todos los pendientes + aceptados/cancelados recientes (< 3 min)
 // ==========================================
 router.get('/', (req, res, next) => {
     try {
-        const sql = `
-            SELECT
-                p.id,
-                p.articulo_id,
-                p.cantidad,
-                p.solicitante,
-                p.ip,
-                p.estado,
-                p.fecha_pedido,
-                a.nombre as articulo_nombre,
-                a.sku,
-                a.cantidad_disponible,
-                c.nombre as categoria_nombre
-            FROM pedidos p
-            JOIN articulos a ON p.articulo_id = a.id
-            JOIN categorias c ON a.categoria_id = c.id
-            ${req.query.ip ? 'WHERE p.ip = ?' : ''}
-            ORDER BY CASE p.estado WHEN 'Pendiente' THEN 0 WHEN 'Entregado' THEN 1 ELSE 2 END, p.fecha_pedido DESC
-        `;
-        const params = req.query.ip ? [String(req.query.ip)] : [];
+        let sql, params;
+
+        if (req.query.ip) {
+            sql = `
+                SELECT
+                    p.id, p.articulo_id, p.cantidad, p.solicitante, p.ip,
+                    p.estado, p.fecha_pedido,
+                    a.nombre as articulo_nombre, a.sku, a.cantidad_disponible,
+                    c.nombre as categoria_nombre
+                FROM pedidos p
+                JOIN articulos a ON p.articulo_id = a.id
+                JOIN categorias c ON a.categoria_id = c.id
+                WHERE p.ip = ? AND p.estado = 'Pendiente'
+                ORDER BY p.fecha_pedido DESC
+            `;
+            params = [String(req.query.ip)];
+        } else {
+            sql = `
+                SELECT
+                    p.id, p.articulo_id, p.cantidad, p.solicitante, p.ip,
+                    p.estado, p.fecha_pedido,
+                    a.nombre as articulo_nombre, a.sku, a.cantidad_disponible,
+                    c.nombre as categoria_nombre
+                FROM pedidos p
+                JOIN articulos a ON p.articulo_id = a.id
+                JOIN categorias c ON a.categoria_id = c.id
+                WHERE p.estado = 'Pendiente'
+                   OR (p.estado != 'Pendiente' AND p.fecha_actualizacion > datetime('now', '-3 minutes'))
+                ORDER BY CASE p.estado WHEN 'Pendiente' THEN 0 ELSE 1 END, p.fecha_pedido DESC
+            `;
+            params = [];
+        }
+
         const pedidos = db.prepare(sql).all(...params);
         res.json({ success: true, data: pedidos });
     } catch (error) {
