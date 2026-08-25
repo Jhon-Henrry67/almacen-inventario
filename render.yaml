@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: almacen-inventario
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DB_PATH
+        value: ./database/almacen.sqlite
+      - key: LOW_STOCK_THRESHOLD
+        value: "10"
+      - key: ADMIN_PIN
+        generateValue: false
+        value: admin123

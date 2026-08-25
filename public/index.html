@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Almacén - Suministros Internos</title>
+    
+    <!-- Meta SEO -->
+    <meta name="description" content="Sistema de Gestión de Almacén e Inventario General de Suministros Internos para Empresas. Control de stock, categorías y alertas.">
+    <meta name="robots" content="index, follow">
+
+    <!-- Tipografía Google Fonts: Inter y Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome para Iconografía Moderna -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Estilos CSS -->
+    <link rel="stylesheet" href="css/styles.css?v=8">
+    
+    <!-- jsPDF para generación de PDF en cliente -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <!-- PANTALLA DE ACCESO -->
+    <div class="access-gate" id="access-gate" style="display:none;">
+        <div class="gate-card">
+            <div class="gate-logo">
+                <img src="img/logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'">
+                <i class="fa-solid fa-boxes-stacked"></i>
+            </div>
+            <h2>Almacén Pro</h2>
+            <p class="text-muted gate-subtitle">Sistema de Gestión de Suministros</p>
+
+            <div id="gate-options">
+                <button class="btn btn-primary btn-gate" id="btn-enter-personal">
+                    <i class="fa-solid fa-cart-plus"></i> Entrar como Personal
+                </button>
+                <button class="btn btn-outline btn-gate" id="btn-show-admin">
+                    <i class="fa-solid fa-user-shield"></i> Soy Administrador
+                </button>
+            </div>
+
+            <form id="admin-pin-form" style="display:none;">
+                <label for="gate-pin">Clave de administrador</label>
+                <input type="password" id="gate-pin" placeholder="Ingresa la clave..." autocomplete="off" required>
+                <p class="gate-error text-danger" id="gate-error" style="display:none;"></p>
+                <div class="gate-actions">
+                    <button type="button" class="btn btn-outline" id="btn-gate-back">Volver</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-unlock"></i> Desbloquear</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="app-layout">
+        <!-- Sidebar / Navegación Lateral -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-box">
+                    <img src="img/logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'">
+                    <i class="fa-solid fa-boxes-stacked logo-icon"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">Almacén Pro</span>
+                    <span class="brand-subtitle">Gestión de Suministros</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" id="nav-dashboard">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Dashboard Panel</span>
+                </a>
+                <a href="#inventario" class="nav-item" id="nav-inventario">
+                    <i class="fa-solid fa-box-archive"></i>
+                    <span>Inventario General</span>
+                </a>
+                <a href="#categorias" class="nav-item" id="nav-categorias">
+                    <i class="fa-solid fa-tags"></i>
+                    <span>Categorías</span>
+                </a>
+                <a href="#pedidos" class="nav-item" id="nav-pedidos">
+                    <i class="fa-solid fa-cart-plus"></i>
+                    <span>Pedir Artículo</span>
+                </a>
+                <a href="#admin-pedidos" class="nav-item" id="nav-admin-pedidos">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    <span>Administrar Pedidos</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-pill">
+                    <i class="fa-solid fa-circle-user"></i>
+                    <span id="user-pill-name">Administrador Almacén</span>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm logout-btn" id="btn-logout">
+                    <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
+                </button>
+            </div>
+        </aside>
+
+        <!-- Contenido Principal -->
+        <main class="main-content">
+            <!-- Topbar / Cabecera Superior -->
+            <header class="topbar">
+                <div class="topbar-title">
+                    <h1 id="page-title">Dashboard Principal</h1>
+                    <p id="page-subtitle" class="subtitle">Resumen ejecutivo y monitoreo del inventario de suministros</p>
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn btn-outline" id="btn-export-pdf" title="Descargar Reporte PDF">
+                        <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+                    </button>
+                    <button class="btn btn-primary" id="btn-open-add-modal">
+                        <i class="fa-solid fa-plus"></i> Nuevo Artículo
+                    </button>
+                </div>
+            </header>
+
+            <!-- VISTA 1: DASHBOARD -->
+            <section id="section-dashboard" class="view-section active">
+                <!-- Tarjetas de Resumen KPI -->
+                <div class="kpi-grid">
+                    <div class="kpi-card card-blue kpi-clickable" data-nav="inventario">
+                        <div class="kpi-icon">
+                            <i class="fa-solid fa-cubes"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Artículos Registrados</span>
+                            <span class="kpi-value" id="kpi-total-articulos">0</span>
+                            <span class="kpi-sub">Tipos de suministros únicos</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card card-emerald">
+                        <div class="kpi-icon">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Unidades en Stock</span>
+                            <span class="kpi-value" id="kpi-total-unidades">0</span>
+                            <span class="kpi-sub">Suministros disponibles totales</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card card-indigo kpi-clickable" data-nav="categorias">
+                        <div class="kpi-icon">
+                            <i class="fa-solid fa-tags"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Categorías Activas</span>
+                            <span class="kpi-value" id="kpi-total-categorias">0</span>
+                            <span class="kpi-sub">Grupos de clasificación</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card card-amber kpi-clickable" id="kpi-card-alert" data-nav="inventario" data-filter="alerta">
+                        <div class="kpi-icon">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Alertas de Stock</span>
+                            <span class="kpi-value" id="kpi-total-alertas">0</span>
+                            <span class="kpi-sub" id="kpi-alert-detail">Bajo stock u agotados</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Doble: Alertas Prioritarias & Distribución por Categoría -->
+                <div class="dashboard-panels">
+                    <!-- Panel de Alertas Reabastecimiento -->
+                    <div class="panel card">
+                        <div class="panel-header">
+                            <h2><i class="fa-solid fa-bell text-warning"></i> Suministros Requieren Reabastecimiento</h2>
+                            <span class="badge badge-warning" id="alert-badge-count">0 Alertas</span>
+                        </div>
+                        <div class="panel-body">
+                            <div id="alert-items-list" class="alert-list">
+                                <!-- Se puebla dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Distribución por Categoría -->
+                    <div class="panel card">
+                        <div class="panel-header">
+                            <h2><i class="fa-solid fa-chart-bar text-primary"></i> Existencias por Categoría</h2>
+                        </div>
+                        <div class="panel-body">
+                            <div id="category-distribution-bars" class="distribution-bars">
+                                <!-- Se puebla dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA 2: GESTIÓN DE INVENTARIO (TABLA INTERACTIVA) -->
+            <section id="section-inventario" class="view-section">
+                <!-- Chip: Filtro de Alertas Activo -->
+                <div id="alert-filter-chip" class="alert-filter-chip" style="display:none;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Mostrando solo artículos con alertas de stock (stock bajo o agotados)</span>
+                    <button id="btn-clear-alert-filter" title="Quitar filtro" type="button">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Filtros y Barra de Búsqueda -->
+                <div class="filter-bar card">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="search-input" placeholder="Buscar por Nombre, SKU o Descripción..." autocomplete="off">
+                        <button id="search-clear-btn" class="clear-btn" title="Limpiar Búsqueda" style="display:none;">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="filter-controls">
+                        <div class="filter-group">
+                            <label for="filter-categoria"><i class="fa-solid fa-filter"></i> Categoría:</label>
+                            <select id="filter-categoria">
+                                <option value="">Todas las Categorías</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="filter-limit"><i class="fa-solid fa-list-ol"></i> Mostrar:</label>
+                            <select id="filter-limit">
+                                <option value="5">5 por pág.</option>
+                                <option value="10" selected>10 por pág.</option>
+                                <option value="25">25 por pág.</option>
+                                <option value="50">50 por pág.</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Artículos -->
+                <div class="table-container card">
+                    <table class="data-table" id="inventory-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="sku" class="sortable">SKU <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="nombre" class="sortable">Artículo <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="categoria" class="sortable">Categoría <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="cantidad_disponible" class="sortable text-center">Stock Disponible <i class="fa-solid fa-sort"></i></th>
+                                <th class="text-center">Estado</th>
+                                <th data-sort="ultima_actualizacion" class="sortable">Última Act. <i class="fa-solid fa-sort"></i></th>
+                                <th class="text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-tbody">
+                            <!-- Filas dinámicas -->
+                        </tbody>
+                    </table>
+
+                    <!-- Loader y Estado Vacío -->
+                    <div id="table-loader" class="table-state-box" style="display:none;">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+                        <p>Cargando lista de suministros...</p>
+                    </div>
+
+                    <div id="table-empty" class="table-state-box" style="display:none;">
+                        <i class="fa-solid fa-box-open fa-3x"></i>
+                        <p>No se encontraron artículos que coincidan con la búsqueda.</p>
+                        <button class="btn btn-sm btn-outline" id="btn-reset-filters">Limpiar Filtros</button>
+                    </div>
+                </div>
+
+                <!-- Paginación -->
+                <div class="pagination-bar card">
+                    <div class="pagination-info" id="pagination-info">
+                        Mostrando 0 de 0 artículos
+                    </div>
+                    <div class="pagination-controls" id="pagination-controls">
+                        <!-- Botones de página -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA 3: GESTIÓN DE CATEGORÍAS -->
+            <section id="section-categorias" class="view-section">
+                <div class="categories-layout">
+                    <!-- Formulario de Categoría -->
+                    <div class="card category-form-card">
+                        <div class="card-header">
+                            <h2 id="cat-form-title"><i class="fa-solid fa-folder-plus text-primary"></i> Nueva Categoría</h2>
+                        </div>
+                        <form id="category-form">
+                            <input type="hidden" id="cat-id" value="">
+                            
+                            <div class="form-group">
+                                <label for="cat-nombre">Nombre de Categoría *</label>
+                                <input type="text" id="cat-nombre" placeholder="Ej. Materiales de Oficina" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cat-descripcion">Descripción</label>
+                                <textarea id="cat-descripcion" rows="4" placeholder="Breve descripción de los insumos pertenecientes a esta categoría..."></textarea>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-outline" id="cat-cancel-btn" style="display:none;">Cancelar</button>
+                                <button type="submit" class="btn btn-primary" id="cat-submit-btn">
+                                    <i class="fa-solid fa-floppy-disk"></i> Guardar Categoría
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Listado de Categorías -->
+                    <div class="card category-list-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-list-check"></i> Categorías Registradas</h2>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Descripción</th>
+                                        <th class="text-center">Artículos</th>
+                                        <th class="text-center">Unidades</th>
+                                        <th class="text-right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="categories-tbody">
+                                    <!-- Filas dinámicas -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!-- VISTA 4: PEDIR ARTÍCULO (PERSONAL) -->
+            <section id="section-pedidos" class="view-section">
+                <!-- Portada -->
+                <div class="pedidos-hero">
+                    <div class="pedidos-hero-text">
+                        <h2>¿Qué necesitas hoy?</h2>
+                        <p>Busca el artículo, indica la cantidad y envía tu solicitud al almacén.</p>
+                    </div>
+                    <i class="fa-solid fa-box-open pedidos-hero-icon"></i>
+                </div>
+
+                <div class="pedidos-layout">
+                    <!-- Formulario de Pedido -->
+                    <div class="card pedido-form-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-cart-plus text-primary"></i> Nuevo Pedido</h2>
+                        </div>
+                        <form id="pedido-form">
+                            <!-- PASO 1: Artículos -->
+                            <div class="ped-section-title">
+                                <span class="ped-num">1</span> Elige los artículos
+                            </div>
+                            <div class="form-group">
+                                <div class="ped-search">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="ped-buscador" placeholder="Escribe el nombre o SKU..." autocomplete="off">
+                                </div>
+                                <span class="form-hint">Haz clic en un resultado para agregarlo a tu lista.</span>
+                                <div id="ped-resultados" class="ped-resultados"></div>
+
+                                <!-- Lista de artículos elegidos -->
+                                <div id="ped-cart" class="ped-cart" style="display:none;">
+                                    <div class="ped-cart-head">
+                                        <span><i class="fa-solid fa-basket-shopping text-primary"></i> Tu lista · <b id="ped-cart-count">0</b> artículo(s)</span>
+                                        <button type="button" id="ped-cart-clear" class="ped-cart-clear"><i class="fa-solid fa-trash-can"></i> Vaciar</button>
+                                    </div>
+                                    <div id="ped-cart-items"></div>
+                                </div>
+                            </div>
+
+                            <div class="ped-divider"></div>
+
+                            <!-- PASO 2: Solicitante -->
+                            <div class="form-group">
+                                <div class="ped-section-title">
+                                    <span class="ped-num">2</span> Solicitante
+                                </div>
+                                <div class="ped-search">
+                                    <i class="fa-solid fa-user"></i>
+                                    <input type="text" id="ped-solicitante" placeholder="Tu nombre o área..." required>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary ped-submit">
+                                <i class="fa-solid fa-paper-plane"></i> Enviar Pedido
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Estado de Solicitudes (tarjetas) -->
+                    <div class="card pedido-list-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-bell text-warning"></i> Estado de Solicitudes</h2>
+                        </div>
+                        <div id="mis-solicitudes-grid" class="mis-solicitudes-grid"></div>
+                        <div id="mis-solicitudes-empty" class="table-state-box" style="display:none;">
+                            <i class="fa-solid fa-inbox fa-3x"></i>
+                            <p>Aún no hay solicitudes. Envía una con el formulario.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA 5: ADMINISTRACIÓN DE PEDIDOS -->
+            <section id="section-admin-pedidos" class="view-section">
+                <div class="card category-list-card">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-clipboard-check"></i> Solicitudes Entrantes</h2>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Artículo</th>
+                                    <th>Solicitante</th>
+                                    <th class="text-center">Cant.</th>
+                                    <th class="text-center">Estado</th>
+                                    <th>Fecha</th>
+                                    <th class="text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-pedidos-tbody">
+                                <!-- Filas dinámicas -->
+                            </tbody>
+                        </table>
+
+                        <div id="admin-pedidos-empty" class="table-state-box" style="display:none;">
+                            <i class="fa-solid fa-inbox fa-3x"></i>
+                            <p>No hay pedidos registrados todavía.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODAL 1: CREAR / EDITAR ARTÍCULO -->
+    <div class="modal-overlay" id="article-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="article-modal-title"><i class="fa-solid fa-box text-primary"></i> Agregar Nuevo Artículo</h3>
+                <button class="modal-close-btn close-modal">&times;</button>
+            </div>
+            <form id="article-form">
+                <input type="hidden" id="art-id" value="">
+
+                <div class="form-grid">
+                    <!-- Foto del Producto -->
+                    <div class="form-group col-full">
+                        <label>Foto del Producto</label>
+                        <input type="file" id="art-imagen-input" accept="image/png,image/jpeg,image/webp" hidden>
+                        <div class="art-img-picker" id="art-img-picker" title="Clic para elegir una foto">
+                            <img id="art-img-preview" alt="" style="display:none">
+                            <div id="art-img-placeholder" class="art-img-placeholder">
+                                <span class="art-cam-icon"><i class="fa-solid fa-camera"></i></span>
+                                <div class="art-hint-bubble">Toma la foto del producto aquí</div>
+                            </div>
+                            <button type="button" id="art-img-remove" title="Quitar foto" style="display:none">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Nombre del Artículo -->
+                    <div class="form-group col-full">
+                        <label for="art-nombre">Nombre del Artículo / Suministro *</label>
+                        <input type="text" id="art-nombre" placeholder="Ej. Papel Bond A4 75g (Caja 5 Reamas)" required>
+                    </div>
+
+                    <!-- Categoría -->
+                    <div class="form-group col-half">
+                        <label for="art-categoria">Categoría *</label>
+                        <select id="art-categoria" required>
+                            <option value="">-- Seleccionar Categoría --</option>
+                        </select>
+                    </div>
+
+                    <!-- Cantidad Disponible (Stock) -->
+                    <div class="form-group col-half">
+                        <label for="art-cantidad">Cantidad Disponible (Stock) *</label>
+                        <div class="stock-input-wrapper">
+                            <input type="number" id="art-cantidad" min="0" step="1" value="0" required>
+                            <div class="stock-quick-btns">
+                                <button type="button" class="btn-step" data-step="-5">-5</button>
+                                <button type="button" class="btn-step" data-step="-1">-1</button>
+                                <button type="button" class="btn-step" data-step="+1">+1</button>
+                                <button type="button" class="btn-step" data-step="+5">+5</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Descripción -->
+                    <div class="form-group col-full">
+                        <label for="art-descripcion">Descripción / Detalles Técnicos</label>
+                        <textarea id="art-descripcion" rows="3" placeholder="Especificaciones, marca, ubicación de estante o detalles de uso..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-article">
+                        <i class="fa-solid fa-check"></i> Guardar Artículo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: CONFIRMAR ELIMINACIÓN DE ARTÍCULO -->
+    <div class="modal-overlay" id="delete-article-modal">
+        <div class="modal-card modal-sm text-center">
+            <div class="modal-icon-header warning-icon">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3>¿Confirmar Eliminación?</h3>
+            <p>Está a punto de eliminar el artículo <strong id="delete-article-name">"..."</strong> (SKU: <span id="delete-article-sku">...</span>) del inventario.</p>
+            <p class="text-danger small">Esta acción no se puede deshacer.</p>
+
+            <div class="modal-footer justify-center">
+                <button class="btn btn-outline close-modal">Cancelar</button>
+                <button class="btn btn-danger" id="btn-confirm-delete-article">
+                    <i class="fa-solid fa-trash"></i> Eliminar Definitivamente
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: RELLENAR STOCK DE UN ARTÍCULO -->
+    <div class="modal-overlay" id="refill-modal">
+        <div class="modal-card modal-sm">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-plus text-primary"></i> Rellenar Stock</h3>
+                <button class="modal-close-btn close-modal" type="button">&times;</button>
+            </div>
+            <div class="refill-info">
+                <span class="sku-code" id="refill-sku">...</span>
+                <strong id="refill-name">...</strong>
+                <small class="text-muted">Stock actual: <strong id="refill-current">0</strong> unidades</small>
+            </div>
+            <form id="refill-form">
+                <div class="form-group">
+                    <label for="refill-cantidad">Cantidad a agregar *</label>
+                    <input type="number" id="refill-cantidad" min="1" step="1" value="10" required>
+                    <span class="form-hint"><i class="fa-solid fa-arrow-rotate-right"></i> Stock resultante: <strong id="refill-preview" class="text-primary">0</strong> unidades</span>
+                    <div class="stock-quick-btns">
+                        <button type="button" class="btn-refill-step" data-step="+5">+5</button>
+                        <button type="button" class="btn-refill-step" data-step="+10">+10</button>
+                        <button type="button" class="btn-refill-step" data-step="+25">+25</button>
+                        <button type="button" class="btn-refill-step" data-step="+50">+50</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-confirm-refill">
+                        <i class="fa-solid fa-boxes-stacked"></i> Agregar Cantidad
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR DE NOTIFICACIONES TOAST -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- SCRIPTS JS DE LA APLICACIÓN -->
+    <script src="js/api.js?v=8"></script>
+    <script src="js/components.js?v=8"></script>
+    <script src="js/app.js?v=8"></script>
+</body>
+</html>
