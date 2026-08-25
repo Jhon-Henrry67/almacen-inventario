@@ -93,16 +93,13 @@ document.addEventListener('DOMContentLoaded', () => {
         hideGate();
 
         // Visibilidad inicial de botones
-        const btnStockPdf = document.querySelector('.btn-export-stock-pdf');
-        const btnPedidosPdf = document.querySelector('.btn-export-pedidos-pdf');
+        const btnPdfWrapper = document.getElementById('dropdown-pdf');
         const btnAddArticle = document.getElementById('btn-open-add-modal');
         if (role === 'personal') {
-            if (btnStockPdf) btnStockPdf.style.display = 'none';
-            if (btnPedidosPdf) btnPedidosPdf.style.display = 'none';
+            if (btnPdfWrapper) btnPdfWrapper.style.display = 'none';
             if (btnAddArticle) btnAddArticle.style.display = 'none';
         } else {
-            if (btnStockPdf) btnStockPdf.style.display = '';
-            if (btnPedidosPdf) btnPedidosPdf.style.display = 'none';
+            if (btnPdfWrapper) btnPdfWrapper.style.display = '';
             if (btnAddArticle) btnAddArticle.style.display = 'none';
         }
 
@@ -209,12 +206,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         state.currentView = targetView;
 
-        // Botones PDF según la vista activa
-        const btnStockPdf = document.querySelector('.btn-export-stock-pdf');
-        const btnPedidosPdf = document.querySelector('.btn-export-pedidos-pdf');
+        // Botones según la vista activa
+        const btnPdfWrapper = document.getElementById('dropdown-pdf');
         const btnAddArticle = document.getElementById('btn-open-add-modal');
-        if (btnStockPdf) btnStockPdf.style.display = (targetView === 'inventario' || targetView === 'dashboard') ? '' : 'none';
-        if (btnPedidosPdf) btnPedidosPdf.style.display = (targetView === 'admin-pedidos') ? '' : 'none';
+        if (btnPdfWrapper) btnPdfWrapper.style.display = (targetView === 'dashboard') ? '' : 'none';
         if (btnAddArticle) btnAddArticle.style.display = (targetView === 'inventario') ? '' : 'none';
 
         // Polling en tiempo real: vista del personal refresca solicitudes cada 5s
@@ -277,11 +272,30 @@ document.addEventListener('DOMContentLoaded', () => {
             Components.openModal('article-modal');
         });
 
-        // Botón Exportar PDF Stock
-        document.getElementById('btn-export-pdf').addEventListener('click', exportToPDF);
+        // Botón Exportar PDF (dropdown)
+        document.getElementById('btn-export-pdf').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const menu = document.getElementById('dropdown-pdf-menu');
+            menu.classList.toggle('show');
+        });
 
-        // Botón Exportar PDF Pedidos
-        document.getElementById('btn-export-pedidos-pdf').addEventListener('click', exportPedidosPDF);
+        document.addEventListener('click', () => {
+            document.getElementById('dropdown-pdf-menu').classList.remove('show');
+        });
+
+        // Exportar PDF Stock
+        document.getElementById('btn-export-stock-pdf').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('dropdown-pdf-menu').classList.remove('show');
+            exportToPDF();
+        });
+
+        // Exportar PDF Pedidos
+        document.getElementById('btn-export-pedidos-pdf').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('dropdown-pdf-menu').classList.remove('show');
+            exportPedidosPDF();
+        });
 
 
 

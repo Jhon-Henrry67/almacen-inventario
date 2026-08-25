@@ -230,6 +230,45 @@ h1, h2, h3, h4, .brand-title {
     gap: 12px;
 }
 
+/* Dropdown PDF */
+.dropdown-pdf {
+    position: relative;
+}
+.dropdown-pdf-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    min-width: 200px;
+    z-index: 100;
+    overflow: hidden;
+}
+.dropdown-pdf-menu.show {
+    display: block;
+}
+.dropdown-pdf-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: var(--transition);
+    text-align: left;
+}
+.dropdown-pdf-item:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
 /* Buttons System */
 .btn {
     display: inline-flex;
