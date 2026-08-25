@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupKpiClickHandlers();
         setupAccessGate();
         setupPedidoControls();
+        setupMobileMenu();
 
         // Cargar Categorías iniciales
         await loadCategories();
@@ -54,6 +55,34 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             showGate();
         }
+    }
+
+    // --------------------------------------------------
+    // Menú móvil (hamburguesa)
+    // --------------------------------------------------
+    function setupMobileMenu() {
+        const btn = document.getElementById('mobile-menu-btn');
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('mobile-overlay');
+        if (!btn || !sidebar || !overlay) return;
+
+        btn.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('show');
+        });
+
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('show');
+        });
+
+        // Cerrar al navegar
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('show');
+            });
+        });
     }
 
     // --------------------------------------------------
@@ -1448,13 +1477,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             grid.innerHTML = recientes.map(p => {
                 const m = meta[p.estado] || meta['Pendiente'];
+                const thumb = p.imagen
+                    ? `<img src="${p.imagen}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border-color);flex-shrink:0;" alt="">`
+                    : `<div style="width:44px;height:44px;border-radius:8px;background:var(--indigo-light);color:var(--indigo);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-box"></i></div>`;
                 return `
                     <div class="sol-card">
-                        <div class="sol-top">
-                            <strong>${p.articulo_nombre}</strong>
+                        <div class="sol-top" style="display:flex;align-items:center;gap:10px;">
+                            ${thumb}
+                            <div style="flex:1;min-width:0;">
+                                <strong>${p.articulo_nombre}</strong>
+                                <div><small><span class="sku-code">${p.sku}</span></small></div>
+                            </div>
                             <span class="sol-badge ${m.cls}"><i class="fa-solid ${m.icon}"></i> ${m.label}</span>
                         </div>
-                        <small><span class="sku-code">${p.sku}</span></small>
                         <div class="sol-meta">
                             <span><i class="fa-solid fa-user"></i> ${p.solicitante || '—'}</span>
                             <span><i class="fa-solid fa-layer-group"></i> Cantidad: ${p.cantidad}</span>
@@ -1487,12 +1522,20 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.innerHTML = res.data.map(p => {
                 const badgeClass = p.estado === 'Pendiente' ? 'badge-warning'
                     : p.estado === 'Entregado' ? 'badge-success' : 'badge-danger';
+                const photo = p.imagen
+                    ? `<img src="${p.imagen}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;" alt="">`
+                    : `<span style="display:inline-block;width:36px;height:36px;border-radius:6px;background:var(--bg-main);border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;text-align:center;line-height:36px;color:var(--text-muted);font-size:0.8rem;"><i class="fa-solid fa-box"></i></span>`;
 
                 return `
                     <tr>
                         <td>
-                            <div style="font-weight: 600;">${p.articulo_nombre}</div>
-                            <small><span class="sku-code">${p.sku}</span></small>
+                            <div style="font-weight: 600; display:flex; align-items:center;">
+                                ${photo}
+                                <div>
+                                    <div>${p.articulo_nombre}</div>
+                                    <small><span class="sku-code">${p.sku}</span></small>
+                                </div>
+                            </div>
                         </td>
                         <td>${p.solicitante ? p.solicitante : '<span class="text-muted">—</span>'}</td>
                         <td class="text-center"><strong>${p.cantidad}</strong></td>

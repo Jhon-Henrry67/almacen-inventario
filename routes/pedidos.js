@@ -22,7 +22,7 @@ router.get('/', (req, res, next) => {
                 SELECT
                     p.id, p.articulo_id, p.cantidad, p.solicitante, p.ip,
                     p.estado, p.fecha_pedido,
-                    a.nombre as articulo_nombre, a.sku, a.cantidad_disponible,
+                    a.nombre as articulo_nombre, a.sku, a.cantidad_disponible, a.imagen,
                     c.nombre as categoria_nombre
                 FROM pedidos p
                 JOIN articulos a ON p.articulo_id = a.id
@@ -38,7 +38,7 @@ router.get('/', (req, res, next) => {
                 SELECT
                     p.id, p.articulo_id, p.cantidad, p.solicitante, p.ip,
                     p.estado, p.fecha_pedido,
-                    a.nombre as articulo_nombre, a.sku, a.cantidad_disponible,
+                    a.nombre as articulo_nombre, a.sku, a.cantidad_disponible, a.imagen,
                     c.nombre as categoria_nombre
                 FROM pedidos p
                 JOIN articulos a ON p.articulo_id = a.id

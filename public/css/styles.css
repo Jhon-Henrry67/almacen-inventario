@@ -1774,8 +1774,47 @@ body.role-personal .topbar-actions {
 
 .sol-meta i { color: var(--text-muted); margin-right: 4px; }
 
-/* Responsive Mobile Layout adjustments */
+/* ====================================================================
+   RESPONSIVE MOBILE - Menú, Layout y Componentes
+   ==================================================================== */
+
+/* Botón hamburguesa móvil */
+.mobile-menu-btn {
+    display: none;
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 50;
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 1.15rem;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-sm);
+}
+
+.mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 39;
+}
+
+.mobile-overlay.show {
+    display: block;
+}
+
 @media (max-width: 768px) {
+    .mobile-menu-btn {
+        display: flex;
+    }
+
     .sidebar {
         transform: translateX(-100%);
     }
@@ -1785,11 +1824,160 @@ body.role-personal .topbar-actions {
     .main-content {
         margin-left: 0;
         padding: 16px;
+        padding-top: 64px;
     }
+
+    /* Topbar */
     .topbar {
         flex-direction: column;
         align-items: flex-start;
-        gap: 12px;
+        gap: 10px;
         height: auto;
+        margin-bottom: 18px;
+    }
+    .topbar-title h1 {
+        font-size: 1.25rem;
+    }
+    .topbar-actions {
+        width: 100%;
+    }
+
+    /* KPI grid: 2 columnas en móvil */
+    .kpi-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .kpi-card {
+        padding: 14px;
+        gap: 10px;
+        flex-direction: column;
+        text-align: center;
+    }
+    .kpi-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+    }
+    .kpi-value {
+        font-size: 1.35rem;
+    }
+    .kpi-label {
+        font-size: 0.7rem;
+    }
+
+    /* Dashboard panels apilados */
+    .dashboard-panels {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .panel {
+        padding: 16px;
+    }
+    .panel-header h2 {
+        font-size: 0.95rem;
+    }
+
+    /* Filter bar y search */
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 14px;
+    }
+    .search-box {
+        min-width: unset;
+    }
+    .filter-controls {
+        flex-wrap: wrap;
+    }
+
+    /* Tabla: scroll horizontal */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .data-table {
+        min-width: 600px;
+        font-size: 0.82rem;
+    }
+    .data-table th,
+    .data-table td {
+        padding: 10px 12px;
+    }
+
+    /* Paginación */
+    .pagination-bar {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Categorías */
+    .categories-layout {
+        grid-template-columns: 1fr;
+    }
+
+    /* Pedidos layout */
+    .pedidos-layout {
+        grid-template-columns: 1fr;
+    }
+    .pedidos-hero {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    /* Solicitudes grid: 1 columna */
+    .mis-solicitudes-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Admin pedidos tabla */
+    .data-table#admin-pedidos-table {
+        min-width: 520px;
+    }
+
+    /* Modales: casi a pantalla completa */
+    .modal-card {
+        padding: 20px;
+        max-width: 100%;
+        max-height: 85vh;
+    }
+
+    /* Botones: más grandes para toque */
+    .btn {
+        padding: 12px 16px;
+        font-size: 0.88rem;
+    }
+    .btn-sm {
+        padding: 8px 10px;
+    }
+
+    /* Dropdown PDF */
+    .dropdown-pdf-menu {
+        right: 0;
+        min-width: 180px;
+    }
+
+    /* Toast más estrecho */
+    .toast {
+        min-width: unset;
+        max-width: calc(100vw - 32px);
+    }
+    .toast-container {
+        bottom: 16px;
+        right: 16px;
+        left: 16px;
+    }
+
+    /* Textos utilitarios */
+    .hide-mobile { display: none !important; }
+}
+
+@media (max-width: 480px) {
+    .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+    .topbar-actions .btn span {
+        display: none;
     }
 }
