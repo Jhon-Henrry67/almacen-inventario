@@ -608,7 +608,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderInventoryTable(items) {
         const tbody = document.getElementById('inventory-tbody');
-        tbody.innerHTML = items.map(item => `
+        tbody.innerHTML = items.map(item => {
+            const thumbHtml = item.imagen
+                ? `<img src="${item.imagen}" class="m-card-thumb" alt="">`
+                : `<div class="m-card-thumb-empty"><i class="fa-solid fa-box"></i></div>`;
+            return `
             <tr class="row-clickable" data-id="${item.id}" data-name="${item.nombre}" data-sku="${item.sku}" data-cantidad="${item.cantidad_disponible}" title="Clic para rellenar stock">
                 <td><span class="sku-code">${item.sku}</span></td>
                 <td>
@@ -630,12 +634,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="btn btn-sm btn-outline btn-edit-article" data-id="${item.id}" title="Editar Artículo">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger btn-delete-article" data-id="${item.id}" data-name="${item.nombre}" data-sku="${item.sku}" title="Eliminar Artikel">
+                    <button class="btn btn-sm btn-danger btn-delete-article" data-id="${item.id}" data-name="${item.nombre}" data-sku="${item.sku}" title="Eliminar Artículo">
                         <i class="fa-solid fa-trash"></i>
                     </button>
                 </td>
+                <!-- Tarjeta móvil -->
+                <td class="m-card">
+                    <div class="m-card-top">
+                        ${thumbHtml}
+                        <div class="m-card-title">
+                            <strong>${item.nombre}</strong>
+                            <small><span class="sku-code">${item.sku}</span></small>
+                        </div>
+                    </div>
+                    <div class="m-card-meta">
+                        <span><i class="fa-solid fa-folder"></i> ${item.categoria_nombre}</span>
+                        <span><strong>${item.cantidad_disponible.toLocaleString()}</strong> unid.</span>
+                        ${Components.renderStockBadge(item.cantidad_disponible)}
+                    </div>
+                    <div class="m-card-actions">
+                        <button class="btn btn-sm btn-outline btn-edit-article" data-id="${item.id}">
+                            <i class="fa-solid fa-pen-to-square"></i> Editar
+                        </button>
+                        <button class="btn btn-sm btn-danger btn-delete-article" data-id="${item.id}" data-name="${item.nombre}" data-sku="${item.sku}">
+                            <i class="fa-solid fa-trash"></i> Eliminar
+                        </button>
+                        <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); document.querySelector('.row-clickable[data-id=\\'${item.id}\\']').click();" style="flex:0.6;">
+                            <i class="fa-solid fa-boxes-stacked"></i> Rellenar
+                        </button>
+                    </div>
+                </td>
             </tr>
-        `).join('');
+        `;}).join('');
 
         // Eventos para Botones de Acción en cada Fila
         document.querySelectorAll('.btn-edit-article').forEach(btn => {
@@ -1228,6 +1258,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         <i class="fa-solid fa-trash"></i>
                     </button>
                 </td>
+                <!-- Tarjeta móvil -->
+                <td class="m-card">
+                    <div class="m-card-top">
+                        <div class="m-card-thumb-empty"><i class="fa-solid fa-folder"></i></div>
+                        <div class="m-card-title">
+                            <strong>${cat.nombre}</strong>
+                            <small>${cat.descripcion || 'Sin descripción'}</small>
+                        </div>
+                    </div>
+                    <div class="m-card-meta">
+                        <span>${cat.total_articulos} artículos</span>
+                        <span><strong>${cat.total_unidades}</strong> unidades</span>
+                    </div>
+                    <div class="m-card-actions">
+                        <button class="btn btn-sm btn-outline btn-edit-cat" data-id="${cat.id}" data-name="${cat.nombre}" data-desc="${cat.descripcion || ''}">
+                            <i class="fa-solid fa-pen"></i> Editar
+                        </button>
+                        <button class="btn btn-sm btn-danger btn-delete-cat" data-id="${cat.id}">
+                            <i class="fa-solid fa-trash"></i> Eliminar
+                        </button>
+                    </div>
+                </td>
             </tr>
         `).join('');
 
@@ -1519,6 +1571,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 const photo = p.imagen
                     ? `<img src="${p.imagen}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;" alt="">`
                     : `<span style="display:inline-block;width:36px;height:36px;border-radius:6px;background:var(--bg-main);border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;text-align:center;line-height:36px;color:var(--text-muted);font-size:0.8rem;"><i class="fa-solid fa-box"></i></span>`;
+                const mPhoto = p.imagen
+                    ? `<img src="${p.imagen}" class="m-card-thumb" alt="">`
+                    : `<div class="m-card-thumb-empty"><i class="fa-solid fa-box"></i></div>`;
+                const badgeHtml = `<span class="badge ${badgeClass}"><i class="fa-solid fa-circle-info"></i> ${p.estado}</span>`;
+                const actionsPendiente = p.estado === 'Pendiente' ? `
+                    <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}" data-cantidad="${p.cantidad}" title="Entregar pedido">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}" title="Cancelar pedido">
+                        <i class="fa-solid fa-ban"></i>
+                    </button>
+                ` : '';
+                const mActionsPendiente = p.estado === 'Pendiente' ? `
+                    <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}" data-cantidad="${p.cantidad}">
+                        <i class="fa-solid fa-check"></i> Entregar
+                    </button>
+                    <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}">
+                        <i class="fa-solid fa-ban"></i> Cancelar
+                    </button>
+                ` : '';
 
                 return `
                     <tr>
@@ -1533,22 +1605,35 @@ document.addEventListener('DOMContentLoaded', () => {
                         </td>
                         <td>${p.solicitante ? p.solicitante : '<span class="text-muted">—</span>'}</td>
                         <td class="text-center"><strong>${p.cantidad}</strong></td>
-                        <td class="text-center">
-                            <span class="badge ${badgeClass}"><i class="fa-solid fa-circle-info"></i> ${p.estado}</span>
-                        </td>
+                        <td class="text-center">${badgeHtml}</td>
                         <td><small class="text-muted">${Components.formatDate(p.fecha_pedido)}</small></td>
                         <td class="text-right">
-                            ${p.estado === 'Pendiente' ? `
-                                <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}" data-cantidad="${p.cantidad}" title="Entregar pedido (descuenta stock)">
-                                    <i class="fa-solid fa-check"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}" title="Cancelar pedido">
-                                    <i class="fa-solid fa-ban"></i>
-                                </button>
-                            ` : ''}
+                            ${actionsPendiente}
                             <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${p.id}" title="Eliminar pedido">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
+                        </td>
+                        <!-- Tarjeta móvil -->
+                        <td class="m-card">
+                            <div class="m-card-top">
+                                ${mPhoto}
+                                <div class="m-card-title">
+                                    <strong>${p.articulo_nombre}</strong>
+                                    <small><span class="sku-code">${p.sku}</span></small>
+                                </div>
+                                ${badgeHtml}
+                            </div>
+                            <div class="m-card-meta">
+                                <span><i class="fa-solid fa-user"></i> ${p.solicitante || '—'}</span>
+                                <span><i class="fa-solid fa-layer-group"></i> Cant: ${p.cantidad}</span>
+                                <span><i class="fa-regular fa-clock"></i> ${Components.formatDate(p.fecha_pedido)}</span>
+                            </div>
+                            <div class="m-card-actions">
+                                ${mActionsPendiente}
+                                <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${p.id}">
+                                    <i class="fa-solid fa-trash"></i> Eliminar
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
