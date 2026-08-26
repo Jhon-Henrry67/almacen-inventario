@@ -626,19 +626,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 cat: escapeHtml(item.categoria_nombre),
                 desc: escapeHtml(item.descripcion || ''),
                 cant: item.cantidad_disponible.toLocaleString(),
-                img: item.imagen || ''
+                img: getArtImg(item.imagen)
             };
-            const thumbHtml = e.img
-                ? `<img src="${e.img}" class="m-card-thumb" alt="">`
-                : `<div class="m-card-thumb-empty"><i class="fa-solid fa-box"></i></div>`;
+            const thumbHtml = `<img src="${e.img}" class="m-card-thumb" alt="">`;
             return `
             <tr class="row-clickable" data-id="${e.id}" data-name="${item.nombre}" data-sku="${item.sku}" data-cantidad="${item.cantidad_disponible}" title="Clic para rellenar stock">
                 <td><span class="sku-code">${e.sku}</span></td>
                 <td>
                     <div class="inv-cell">
-                        ${e.img
-                            ? `<img src="${e.img}" class="inv-thumb" alt="">`
-                            : `<div class="inv-thumb inv-thumb-empty"><i class="fa-solid fa-box"></i></div>`}
+                        <img src="${e.img}" class="inv-thumb" alt="">
                         <div class="inv-cell-info">
                             <div style="font-weight: 600;">${e.nombre}</div>
                             <small class="text-muted">${e.desc ? e.desc.substring(0, 60) + '...' : 'Sin descripción'}</small>
@@ -1437,11 +1433,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             cont.innerHTML = res.data.map(a => {
                 const enLista = state.pedidoCart.some(x => x.id === a.id);
+                const artImg = getArtImg(a.imagen);
                 return `
                 <button type="button" class="ped-item ${enLista ? 'selected' : ''}" data-id="${a.id}">
-                    <span class="ped-item-icon">${a.imagen
-                        ? `<img src="${a.imagen}" alt="">`
-                        : '<i class="fa-solid fa-box"></i>'}</span>
+                    <span class="ped-item-icon"><img src="${artImg}" alt=""></span>
                     <span class="ped-item-info">
                         <strong>${escapeHtml(a.nombre)}</strong>
                         <small><span class="sku-code">${escapeHtml(a.sku)}</span></small>
@@ -1550,13 +1545,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             grid.innerHTML = recientes.map(p => {
                 const m = meta[p.estado] || meta['Pendiente'];
-                const thumb = p.imagen
-                    ? `<img src="${p.imagen}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border-color);flex-shrink:0;" alt="">`
-                    : `<div style="width:44px;height:44px;border-radius:8px;background:var(--indigo-light);color:var(--indigo);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-box"></i></div>`;
+                const thumbImg = getArtImg(p.imagen);
                 return `
                     <div class="sol-card">
                         <div class="sol-top" style="display:flex;align-items:center;gap:10px;">
-                            ${thumb}
+                            <img src="${thumbImg}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border-color);flex-shrink:0;" alt="">
                             <div style="flex:1;min-width:0;">
                                 <strong>${escapeHtml(p.articulo_nombre)}</strong>
                                 <div><small><span class="sku-code">${escapeHtml(p.sku)}</span></small></div>
@@ -1601,14 +1594,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     sku: escapeHtml(p.sku),
                     sol: escapeHtml(p.solicitante),
                     cant: escapeHtml(p.cantidad),
-                    img: p.imagen || ''
+                    img: getArtImg(p.imagen)
                 };
-                const photo = e.img
-                    ? `<img src="${e.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;" alt="">`
-                    : `<span style="display:inline-block;width:36px;height:36px;border-radius:6px;background:var(--bg-main);border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;text-align:center;line-height:36px;color:var(--text-muted);font-size:0.8rem;"><i class="fa-solid fa-box"></i></span>`;
-                const mPhoto = e.img
-                    ? `<img src="${e.img}" class="m-card-thumb" alt="">`
-                    : `<div class="m-card-thumb-empty"><i class="fa-solid fa-box"></i></div>`;
+                const photo = `<img src="${e.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;" alt="">`;
+                const mPhoto = `<img src="${e.img}" class="m-card-thumb" alt="">`;
                 const badgeHtml = `<span class="badge ${badgeClass}"><i class="fa-solid fa-circle-info"></i> ${escapeHtml(p.estado)}</span>`;
                 const actionsPendiente = p.estado === 'Pendiente' ? `
                     <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}" data-cantidad="${p.cantidad}" title="Entregar pedido">

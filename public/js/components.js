@@ -9,6 +9,12 @@ function escapeHtml(str) {
     return s.replace(/[&<>"'/]/g, c => map[c]);
 }
 
+const DEFAULT_IMG = '/img/default-product.svg';
+
+function getArtImg(img) {
+    return img || DEFAULT_IMG;
+}
+
 const Components = {
     showToast(message, type = 'success', duration = 3500) {
         const container = document.getElementById('toast-container');
