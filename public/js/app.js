@@ -409,23 +409,6 @@ document.addEventListener('DOMContentLoaded', () => {
             loadInventoryData();
         });
 
-        // Sidebar search - quick search navigates to inventario
-        const sidebarSearch = document.getElementById('sidebar-search-input');
-        if (sidebarSearch) {
-            sidebarSearch.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    const q = sidebarSearch.value.trim();
-                    if (q) {
-                        state.search = q;
-                        state.page = 1;
-                        window.location.hash = 'inventario';
-                        document.getElementById('search-input').value = q;
-                        sidebarSearch.value = '';
-                    }
-                }
-            });
-        }
-
         // Filtro Categoría y Límite Paginación
         document.getElementById('filter-categoria').addEventListener('change', (e) => {
             state.categoria_id = e.target.value;
