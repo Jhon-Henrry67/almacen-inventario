@@ -15,6 +15,7 @@ const categoriasRoutes = require('./routes/categorias');
 const dashboardRoutes = require('./routes/dashboard');
 const pedidosRoutes = require('./routes/pedidos');
 const authRoutes = require('./routes/auth');
+const movimientosRoutes = require('./routes/movimientos');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -46,6 +47,7 @@ app.use('/api/categorias', categoriasRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/movimientos', movimientosRoutes);
 
 app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) {

@@ -132,7 +132,7 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
         }
 
         if (estado === 'Entregado') {
-            const art = db.prepare('SELECT nombre, cantidad_disponible FROM articulos WHERE id = ?').get(pedido.articulo_id);
+            const art = db.prepare('SELECT nombre, sku, cantidad_disponible FROM articulos WHERE id = ?').get(pedido.articulo_id);
             if (!art) {
                 return res.status(400).json({ success: false, message: 'El artículo del pedido ya no existe.' });
             }
@@ -148,6 +148,10 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
                     .run(pedido.cantidad, pedido.articulo_id);
                 db.prepare("UPDATE pedidos SET estado = 'Entregado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?")
                     .run(id);
+                db.prepare(`INSERT INTO movimientos (articulo_id, articulo_nombre, articulo_sku, tipo, cantidad, motivo, usuario) VALUES (?, ?, ?, 'Salida', ?, ?, ?)`).run(
+                    pedido.articulo_id, art.nombre, art.sku, pedido.cantidad,
+                    `Pedido #${id}`, pedido.solicitante || 'Desconocido'
+                );
             });
             entregar();
 

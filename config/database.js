@@ -54,6 +54,25 @@ function initDatabase() {
             console.log('🛠️ Migración aplicada: columna articulos.imagen agregada.');
         }
 
+        // Migración: tabla de movimientos de stock
+        db.exec(`
+            CREATE TABLE IF NOT EXISTS movimientos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                articulo_id INTEGER NOT NULL,
+                articulo_nombre TEXT NOT NULL DEFAULT '',
+                articulo_sku TEXT NOT NULL DEFAULT '',
+                tipo TEXT NOT NULL CHECK(tipo IN ('Entrada', 'Salida')),
+                cantidad INTEGER NOT NULL,
+                motivo TEXT NOT NULL DEFAULT '',
+                usuario TEXT NOT NULL DEFAULT '',
+                fecha_movimiento DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (articulo_id) REFERENCES articulos(id) ON DELETE CASCADE
+            )
+        `);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_movimientos_articulo ON movimientos(articulo_id);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_movimientos_fecha ON movimientos(fecha_movimiento);`);
+        console.log('🛠️ Migración aplicada: tabla movimientos creada/verificada.');
+
         // Verificar si la tabla categorias tiene registros; si no, ejecutar seed
         const catCount = db.prepare('SELECT COUNT(*) as count FROM categorias').get();
         if (catCount.count === 0 && fs.existsSync(seedPath)) {

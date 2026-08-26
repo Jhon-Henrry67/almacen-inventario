@@ -127,6 +127,14 @@ const API = {
         return await response.json();
     },
 
+    async getMovimientos(params = {}) {
+        const query = new URLSearchParams();
+        if (params.page) query.append('page', params.page);
+        if (params.limit) query.append('limit', params.limit);
+        const response = await fetch(`${API_BASE}/movimientos?${query.toString()}`);
+        return await response.json();
+    },
+
     async adminLogin(clave) {
         const response = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',

@@ -295,6 +295,12 @@ router.post('/', requireAdmin, validateArticle, (req, res, next) => {
         const imagenPath = req.body.imagen ? saveArticleImage(req.body.imagen, sku) : '';
         const result = db.prepare(insertSql).run(nombre, descripcion, sku, cantidad_disponible, categoria_id, imagenPath);
 
+        if (cantidad_disponible > 0) {
+            db.prepare(`INSERT INTO movimientos (articulo_id, articulo_nombre, articulo_sku, tipo, cantidad, motivo, usuario) VALUES (?, ?, ?, 'Entrada', ?, ?, ?)`).run(
+                result.lastInsertRowid, nombre, sku, cantidad_disponible, 'Alta de inventario', 'Administrador'
+            );
+        }
+
         // Obtener el registro recién insertado
         const newArticle = db.prepare(`
             SELECT a.*, c.nombre as categoria_nombre 
@@ -331,7 +337,7 @@ router.put('/:id', requireAdmin, validateArticle, (req, res, next) => {
         }
 
         // Conservar el SKU actual si no se envió uno nuevo
-        const currentArticle = db.prepare('SELECT sku, imagen FROM articulos WHERE id = ?').get(id);
+        const currentArticle = db.prepare('SELECT sku, imagen, cantidad_disponible FROM articulos WHERE id = ?').get(id);
         const sku = req.body.sku || currentArticle.sku;
 
         // Foto del producto: nueva imagen, eliminación (''), o conservar la actual (undefined)
@@ -376,6 +382,13 @@ router.put('/:id', requireAdmin, validateArticle, (req, res, next) => {
             WHERE id = ?
         `;
         db.prepare(updateSql).run(nombre, descripcion, sku, cantidad_disponible, categoria_id, imagen || '', id);
+
+        if (cantidad_disponible > currentArticle.cantidad_disponible) {
+            const diff = cantidad_disponible - currentArticle.cantidad_disponible;
+            db.prepare(`INSERT INTO movimientos (articulo_id, articulo_nombre, articulo_sku, tipo, cantidad, motivo, usuario) VALUES (?, ?, ?, 'Entrada', ?, ?, ?)`).run(
+                id, nombre, sku, diff, 'Relleno de stock', 'Administrador'
+            );
+        }
 
         const updatedArticle = db.prepare(`
             SELECT a.*, c.nombre as categoria_nombre 

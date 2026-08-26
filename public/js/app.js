@@ -28,7 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
         articleImageExisting: null,
         pedSearchTimeout: null,
         searchTimeout: null,
-        pedidosPollTimer: null
+        pedidosPollTimer: null,
+        historialPage: 1
     };
 
     // --------------------------------------------------
@@ -221,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchView(viewName) {
-        const validViews = ['dashboard', 'inventario', 'categorias', 'pedidos', 'admin-pedidos'];
+        const validViews = ['dashboard', 'inventario', 'categorias', 'pedidos', 'admin-pedidos', 'historial'];
         let targetView = validViews.includes(viewName) ? viewName : 'dashboard';
 
         // El Administrador no pide artículos: su sección es la gestión
@@ -294,6 +295,10 @@ document.addEventListener('DOMContentLoaded', () => {
             titleEl.textContent = 'Administración de Pedidos';
             subtitleEl.textContent = 'Gestiona las solicitudes entrantes del personal';
             loadPedidos();
+        } else if (targetView === 'historial') {
+            titleEl.textContent = 'Historial de Movimientos';
+            subtitleEl.textContent = 'Registro de entradas y salidas del inventario';
+            loadHistorial();
         }
     }
 
@@ -333,6 +338,20 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             document.getElementById('dropdown-pdf-menu').classList.remove('show');
             exportPedidosPDF();
+        });
+
+        // Exportar Excel Pedidos
+        document.getElementById('btn-export-pedidos-excel').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('dropdown-pdf-menu').classList.remove('show');
+            exportPedidosExcel();
+        });
+
+        // Exportar Excel Stock
+        document.getElementById('btn-export-stock-excel').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('dropdown-pdf-menu').classList.remove('show');
+            exportStockExcel();
         });
 
 
@@ -403,6 +422,23 @@ document.addEventListener('DOMContentLoaded', () => {
             state.page = 1;
             loadInventoryData();
         });
+
+        // Sidebar search - quick search navigates to inventario
+        const sidebarSearch = document.getElementById('sidebar-search-input');
+        if (sidebarSearch) {
+            sidebarSearch.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const q = sidebarSearch.value.trim();
+                    if (q) {
+                        state.search = q;
+                        state.page = 1;
+                        window.location.hash = 'inventario';
+                        document.getElementById('search-input').value = q;
+                        sidebarSearch.value = '';
+                    }
+                }
+            });
+        }
 
         // Filtro Categoría y Límite Paginación
         document.getElementById('filter-categoria').addEventListener('change', (e) => {
@@ -983,6 +1019,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 await loadCategories();
                 loadInventoryData();
                 if (state.currentView === 'dashboard') loadDashboardData();
+                try {
+                    const dashRes = await API.getDashboardStats();
+                    if (dashRes.success && dashRes.data.alertCountTotal > 0) {
+                        Components.showToast(`Atención: ${dashRes.data.alertCountTotal} artículo(s) requieren reabastecimiento`, 'warning', 5000);
+                    }
+                } catch (_) {}
             } else {
                 Components.showToast(res.message || 'Error al actualizar el stock.', 'error');
             }
@@ -1683,6 +1725,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         await loadPedidos();
                         if (state.currentView === 'inventario') loadInventoryData();
                         if (state.currentView === 'dashboard') loadDashboardData();
+                        try {
+                            const dashRes = await API.getDashboardStats();
+                            if (dashRes.success && dashRes.data.alertCountTotal > 0) {
+                                Components.showToast(`Atención: ${dashRes.data.alertCountTotal} artículo(s) requieren reabastecimiento`, 'warning', 5000);
+                            }
+                        } catch (_) {}
                     }
                 } catch (err) {
                     Components.showToast('Error al entregar el pedido', 'error');
@@ -1770,5 +1818,133 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             Components.showToast('Error al registrar el pedido', 'error');
         }
+    }
+
+    // --------------------------------------------------
+    // Historial de Movimientos
+    // --------------------------------------------------
+    async function loadHistorial(page = 1) {
+        state.historialPage = page;
+        const tbody = document.getElementById('historial-tbody');
+        const empty = document.getElementById('historial-empty');
+        if (!tbody) return;
+
+        try {
+            const res = await API.getMovimientos({ page, limit: 20 });
+            if (!res.success || res.data.length === 0) {
+                tbody.innerHTML = '';
+                empty.style.display = 'flex';
+                renderHistorialPagination({ totalItems: 0, totalPages: 1, currentPage: 1, limit: 20 });
+                return;
+            }
+
+            empty.style.display = 'none';
+            tbody.innerHTML = res.data.map(m => {
+                const tipoClass = m.tipo === 'Entrada' ? 'badge-success' : 'badge-danger';
+                const tipoIcon = m.tipo === 'Entrada' ? 'fa-arrow-down' : 'fa-arrow-up';
+                return `
+                    <tr>
+                        <td><small class="text-muted">${Components.formatDate(m.fecha_movimiento)}</small></td>
+                        <td>
+                            <div style="font-weight:600;">${escapeHtml(m.articulo_nombre)}</div>
+                            <small><span class="sku-code">${escapeHtml(m.articulo_sku)}</span></small>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge ${tipoClass}"><i class="fa-solid ${tipoIcon}"></i> ${escapeHtml(m.tipo)}</span>
+                        </td>
+                        <td class="text-center"><strong>${m.cantidad}</strong></td>
+                        <td><small>${escapeHtml(m.motivo)}</small></td>
+                        <td><small>${escapeHtml(m.usuario)}</small></td>
+                    </tr>
+                `;
+            }).join('');
+
+            renderHistorialPagination(res.pagination);
+        } catch (error) {
+            Components.showToast('Error al cargar historial de movimientos', 'error');
+        }
+    }
+
+    function renderHistorialPagination(pagination) {
+        const infoEl = document.getElementById('historial-pagination-info');
+        const controlsEl = document.getElementById('historial-pagination-controls');
+        if (!infoEl || !controlsEl) return;
+
+        const { totalItems, totalPages, currentPage, limit } = pagination;
+        const start = totalItems === 0 ? 0 : (currentPage - 1) * limit + 1;
+        const end = Math.min(currentPage * limit, totalItems);
+
+        infoEl.textContent = `Mostrando ${start} - ${end} de ${totalItems} movimientos`;
+
+        let btns = [];
+        btns.push(`<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}"><i class="fa-solid fa-chevron-left"></i></button>`);
+
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                btns.push(`<button class="page-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`);
+            } else if (i === currentPage - 2 || i === currentPage + 2) {
+                btns.push(`<span class="page-btn" style="border:none;background:none;">...</span>`);
+            }
+        }
+
+        btns.push(`<button class="page-btn" ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''} data-page="${currentPage + 1}"><i class="fa-solid fa-chevron-right"></i></button>`);
+
+        controlsEl.innerHTML = btns.join('');
+
+        controlsEl.querySelectorAll('.page-btn:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetPage = parseInt(btn.dataset.page, 10);
+                if (targetPage) loadHistorial(targetPage);
+            });
+        });
+    }
+
+    // --------------------------------------------------
+    // Exportar a Excel
+    // --------------------------------------------------
+    function exportPedidosExcel() {
+        API.getPedidos().then(res => {
+            if (!res.success || res.data.length === 0) {
+                Components.showToast('No hay pedidos para exportar', 'warning');
+                return;
+            }
+            const rows = res.data.map(p => ({
+                'ID': p.id,
+                'Artículo': p.articulo_nombre,
+                'SKU': p.sku,
+                'Solicitante': p.solicitante || '—',
+                'Cantidad': p.cantidad,
+                'Estado': p.estado,
+                'Fecha': p.fecha_pedido
+            }));
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+            XLSX.writeFile(wb, `reporte_pedidos_${new Date().toISOString().slice(0,10)}.xlsx`);
+            Components.showToast('Excel de pedidos descargado', 'success');
+        }).catch(() => Components.showToast('Error al exportar pedidos', 'error'));
+    }
+
+    function exportStockExcel() {
+        API.getArticles({ limit: 1000 }).then(res => {
+            if (!res.success || res.data.length === 0) {
+                Components.showToast('No hay artículos para exportar', 'warning');
+                return;
+            }
+            const rows = res.data.map(a => ({
+                'SKU': a.sku,
+                'Artículo': a.nombre,
+                'Descripción': a.descripcion || '',
+                'Categoría': a.categoria_nombre,
+                'Stock Disponible': a.cantidad_disponible,
+                'Fecha Ingreso': a.fecha_ingreso,
+                'Última Actualización': a.ultima_actualizacion
+            }));
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+            XLSX.writeFile(wb, `reporte_inventario_${new Date().toISOString().slice(0,10)}.xlsx`);
+            Components.showToast('Excel de inventario descargado', 'success');
+        }).catch(() => Components.showToast('Error al exportar inventario', 'error'));
     }
 });
