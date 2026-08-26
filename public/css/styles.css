@@ -1478,21 +1478,21 @@ body.role-personal .topbar-actions {
 
 /* Lista de artículos elegidos (carrito) */
 .ped-cart {
-    margin-top: 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    background-color: var(--bg-card-hover);
-    overflow: hidden;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 2px solid var(--border-color);
+    border-radius: 0;
+    background-color: transparent;
 }
 
 .ped-cart-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 11px 14px;
-    background-color: var(--primary-light);
-    font-size: 0.86rem;
+    padding: 10px 0;
+    font-size: 0.88rem;
     font-weight: 600;
+    color: var(--text-primary);
 }
 
 .ped-cart-clear {
@@ -1514,8 +1514,11 @@ body.role-personal .topbar-actions {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 11px 14px;
-    border-top: 1px solid var(--border-color);
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-card);
+    margin-bottom: 8px;
 }
 
 .ped-ci-info {

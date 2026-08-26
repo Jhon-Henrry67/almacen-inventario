@@ -391,14 +391,6 @@
                                             <input type="text" id="ped-buscador" placeholder="Buscar por nombre o SKU..." autocomplete="off">
                                         </div>
                                         <div id="ped-resultados" class="ped-resultados"></div>
-
-                                        <div id="ped-cart" class="ped-cart" style="display:none;">
-                                            <div class="ped-cart-head">
-                                                <span><i class="fa-solid fa-basket-shopping text-primary"></i> Tu lista · <b id="ped-cart-count">0</b></span>
-                                                <button type="button" id="ped-cart-clear" class="ped-cart-clear"><i class="fa-solid fa-trash-can"></i></button>
-                                            </div>
-                                            <div id="ped-cart-items"></div>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -418,6 +410,15 @@
                                         <i class="fa-solid fa-paper-plane"></i> Enviar Pedido
                                     </button>
                                 </div>
+                            </div>
+
+                            <!-- Tu Lista (carrito) debajo de ambos pasos -->
+                            <div id="ped-cart" class="ped-cart" style="display:none;">
+                                <div class="ped-cart-head">
+                                    <span><i class="fa-solid fa-basket-shopping text-primary"></i> Tu lista · <b id="ped-cart-count">0</b> artículo(s)</span>
+                                    <button type="button" id="ped-cart-clear" class="ped-cart-clear"><i class="fa-solid fa-trash-can"></i> Vaciar</button>
+                                </div>
+                                <div id="ped-cart-items"></div>
                             </div>
                         </form>
                     </div>
