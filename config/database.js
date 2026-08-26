@@ -73,6 +73,47 @@ function initDatabase() {
         db.exec(`CREATE INDEX IF NOT EXISTS idx_movimientos_fecha ON movimientos(fecha_movimiento);`);
         console.log('🛠️ Migración aplicada: tabla movimientos creada/verificada.');
 
+        // Migración: tablas pedido_grupo y pedido_detalle
+        const hasGrupoTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='pedido_grupo'").get();
+        if (!hasGrupoTable) {
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS pedido_grupo (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    solicitante TEXT NOT NULL DEFAULT '',
+                    ip TEXT NOT NULL DEFAULT '',
+                    estado TEXT NOT NULL DEFAULT 'Pendiente' CHECK(estado IN ('Pendiente', 'Entregado', 'Cancelado')),
+                    fecha_pedido DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE IF NOT EXISTS pedido_detalle (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    grupo_id INTEGER NOT NULL,
+                    articulo_id INTEGER NOT NULL,
+                    cantidad INTEGER NOT NULL CHECK(cantidad > 0),
+                    FOREIGN KEY (grupo_id) REFERENCES pedido_grupo(id) ON DELETE CASCADE,
+                    FOREIGN KEY (articulo_id) REFERENCES articulos(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_pedido_grupo_estado ON pedido_grupo(estado);
+                CREATE INDEX IF NOT EXISTS idx_pedido_detalle_grupo ON pedido_detalle(grupo_id);
+            `);
+            console.log('🛠️ Migración aplicada: tablas pedido_grupo y pedido_detalle creadas.');
+
+            // Migrar pedidos existentes a la nueva estructura
+            const oldPedidos = db.prepare("SELECT * FROM pedidos WHERE estado = 'Pendiente'").all();
+            if (oldPedidos.length > 0) {
+                const insertGrupo = db.prepare("INSERT INTO pedido_grupo (solicitante, ip, estado, fecha_pedido) VALUES (?, ?, ?, ?)");
+                const insertDetalle = db.prepare("INSERT INTO pedido_detalle (grupo_id, articulo_id, cantidad) VALUES (?, ?, ?)");
+                const migrate = db.transaction(() => {
+                    for (const p of oldPedidos) {
+                        const g = insertGrupo.run(p.solicitante, p.ip, p.estado, p.fecha_pedido);
+                        insertDetalle.run(g.lastInsertRowid, p.articulo_id, p.cantidad);
+                    }
+                });
+                migrate();
+                console.log(`🛠️ Migrados ${oldPedidos.length} pedidos existentes.`);
+            }
+        }
+
         // Verificar si la tabla categorias tiene registros; si no, ejecutar seed
         const catCount = db.prepare('SELECT COUNT(*) as count FROM categorias').get();
         if (catCount.count === 0 && fs.existsSync(seedPath)) {

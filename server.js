@@ -63,11 +63,13 @@ require('./routes/articulos').sweepOrphanImages();
 
 setInterval(() => {
     try {
-        const result = db.prepare(
-            "DELETE FROM pedidos WHERE estado != 'Pendiente' AND fecha_actualizacion < datetime('now', '-10 minutes')"
-        ).run();
-        if (result.changes > 0) {
-            console.log(`Limpieza: ${result.changes} pedido(s) resuelto(s) eliminado(s).`);
+        const grupos = db.prepare("SELECT id FROM pedido_grupo WHERE estado != 'Pendiente' AND fecha_actualizacion < datetime('now', '-10 minutes')").all();
+        if (grupos.length > 0) {
+            const ids = grupos.map(g => g.id);
+            const placeholders = ids.map(() => '?').join(',');
+            db.prepare(`DELETE FROM pedido_detalle WHERE grupo_id IN (${placeholders})`).run(...ids);
+            db.prepare(`DELETE FROM pedido_grupo WHERE id IN (${placeholders})`).run(...ids);
+            console.log(`Limpieza: ${grupos.length} pedido(s) resuelto(s) eliminado(s).`);
         }
     } catch (err) {
         console.error('Error en limpieza de pedidos:', err.message);

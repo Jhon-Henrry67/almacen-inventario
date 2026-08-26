@@ -1217,15 +1217,22 @@ document.addEventListener('DOMContentLoaded', () => {
             doc.setTextColor(44, 62, 80);
             doc.text(`Total: ${totalPedidos} | Pendientes: ${pendientes} | Aceptados: ${entregados} | Cancelados: ${cancelados}`, 14, 36);
 
-            const tableBody = res.data.map((p, index) => [
-                index + 1,
-                p.sku,
-                p.articulo_nombre,
-                p.solicitante || '—',
-                p.cantidad,
-                p.estado,
-                p.fecha_pedido
-            ]);
+            const tableBody = [];
+            let rowNum = 0;
+            for (const p of res.data) {
+                for (const it of p.items) {
+                    rowNum++;
+                    tableBody.push([
+                        rowNum,
+                        it.sku,
+                        it.articulo_nombre,
+                        p.solicitante || '—',
+                        it.cantidad,
+                        p.estado,
+                        p.fecha_pedido
+                    ]);
+                }
+            }
 
             doc.autoTable({
                 startY: 42,
@@ -1573,21 +1580,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
             grid.innerHTML = recientes.map(p => {
                 const m = meta[p.estado] || meta['Pendiente'];
-                const thumbImg = getArtImg(p.imagen);
+                const itemsHtml = p.items.map(it => `
+                    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-color);">
+                        <img src="${getArtImg(it.imagen)}" style="width:32px;height:32px;border-radius:6px;object-fit:cover;border:1px solid var(--border-color);flex-shrink:0;" alt="">
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:0.88rem;font-weight:600;">${escapeHtml(it.articulo_nombre)}</div>
+                            <small><span class="sku-code">${escapeHtml(it.sku)}</span></small>
+                        </div>
+                        <span style="font-size:0.82rem;font-weight:700;color:var(--text-secondary);">x${it.cantidad}</span>
+                    </div>
+                `).join('');
                 return `
                     <div class="sol-card">
                         <div class="sol-top" style="display:flex;align-items:center;gap:10px;">
-                            <img src="${thumbImg}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border-color);flex-shrink:0;" alt="">
-                            <div style="flex:1;min-width:0;">
-                                <strong>${escapeHtml(p.articulo_nombre)}</strong>
-                                <div><small><span class="sku-code">${escapeHtml(p.sku)}</span></small></div>
-                            </div>
                             <span class="sol-badge ${m.cls}"><i class="fa-solid ${m.icon}"></i> ${m.label}</span>
+                            <small style="margin-left:auto;color:var(--text-muted);">${Components.formatDate(p.fecha_pedido)}</small>
                         </div>
-                        <div class="sol-meta">
+                        <div style="margin-top:6px;">${itemsHtml}</div>
+                        <div class="sol-meta" style="margin-top:6px;">
                             <span><i class="fa-solid fa-user"></i> ${escapeHtml(p.solicitante) || '—'}</span>
-                            <span><i class="fa-solid fa-layer-group"></i> Cantidad: ${escapeHtml(p.cantidad)}</span>
-                            <span><i class="fa-regular fa-clock"></i> ${Components.formatDate(p.fecha_pedido)}</span>
+                            <span><i class="fa-solid fa-layer-group"></i> ${p.items.length} artículo(s)</span>
                         </div>
                     </div>
                 `;
@@ -1616,19 +1628,26 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.innerHTML = res.data.map(p => {
                 const badgeClass = p.estado === 'Pendiente' ? 'badge-warning'
                     : p.estado === 'Entregado' ? 'badge-success' : 'badge-danger';
-                const e = {
-                    id: parseInt(p.id, 10),
-                    artNombre: escapeHtml(p.articulo_nombre),
-                    sku: escapeHtml(p.sku),
-                    sol: escapeHtml(p.solicitante),
-                    cant: escapeHtml(p.cantidad),
-                    img: getArtImg(p.imagen)
-                };
-                const photo = `<img src="${e.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;" alt="">`;
-                const mPhoto = `<img src="${e.img}" class="m-card-thumb" alt="">`;
                 const badgeHtml = `<span class="badge ${badgeClass}"><i class="fa-solid fa-circle-info"></i> ${escapeHtml(p.estado)}</span>`;
+
+                const itemsListHtml = p.items.map(it => {
+                    const itImg = getArtImg(it.imagen);
+                    return `
+                        <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+                            <img src="${itImg}" style="width:28px;height:28px;border-radius:5px;object-fit:cover;border:1px solid var(--border-color);flex-shrink:0;" alt="">
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:0.85rem;font-weight:600;">${escapeHtml(it.articulo_nombre)}</div>
+                                <small><span class="sku-code">${escapeHtml(it.sku)}</span></small>
+                            </div>
+                            <span style="font-size:0.82rem;font-weight:700;color:var(--text-secondary);">x${it.cantidad}</span>
+                        </div>`;
+                }).join('');
+
+                const firstImg = p.items.length > 0 ? getArtImg(p.items[0].imagen) : '';
+                const photo = firstImg ? `<img src="${firstImg}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;" alt="">` : '';
+
                 const actionsPendiente = p.estado === 'Pendiente' ? `
-                    <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}" data-cantidad="${p.cantidad}" title="Entregar pedido">
+                    <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}" title="Entregar pedido">
                         <i class="fa-solid fa-check"></i>
                     </button>
                     <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}" title="Cancelar pedido">
@@ -1636,7 +1655,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>
                 ` : '';
                 const mActionsPendiente = p.estado === 'Pendiente' ? `
-                    <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}" data-cantidad="${p.cantidad}">
+                    <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}">
                         <i class="fa-solid fa-check"></i> Entregar
                     </button>
                     <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}">
@@ -1650,39 +1669,41 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="font-weight: 600; display:flex; align-items:center;">
                                 ${photo}
                                 <div>
-                                    <div>${e.artNombre}</div>
-                                    <small><span class="sku-code">${e.sku}</span></small>
+                                    <div>${escapeHtml(p.solicitante) || '<span class="text-muted">—</span>'}</div>
+                                    <small style="color:var(--text-muted);">${p.items.length} artículo(s)</small>
                                 </div>
                             </div>
                         </td>
-                        <td>${e.sol ? e.sol : '<span class="text-muted">—</span>'}</td>
-                        <td class="text-center"><strong>${e.cant}</strong></td>
+                        <td>
+                            <div style="max-width:320px;">${itemsListHtml}</div>
+                        </td>
                         <td class="text-center">${badgeHtml}</td>
                         <td><small class="text-muted">${Components.formatDate(p.fecha_pedido)}</small></td>
                         <td class="text-right">
                             ${actionsPendiente}
-                            <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${e.id}" title="Eliminar pedido">
+                            <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${p.id}" title="Eliminar pedido">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                         </td>
                         <!-- Tarjeta móvil -->
                         <td class="m-card">
                             <div class="m-card-top">
-                                ${mPhoto}
+                                ${firstImg ? `<img src="${firstImg}" class="m-card-thumb" alt="">` : ''}
                                 <div class="m-card-title">
-                                    <strong>${e.artNombre}</strong>
-                                    <small><span class="sku-code">${e.sku}</span></small>
+                                    <strong>${escapeHtml(p.solicitante) || '—'}</strong>
+                                    <small>${p.items.length} artículo(s)</small>
                                 </div>
                                 ${badgeHtml}
                             </div>
-                            <div class="m-card-meta">
-                                <span><i class="fa-solid fa-user"></i> ${e.sol || '—'}</span>
-                                <span><i class="fa-solid fa-layer-group"></i> Cant: ${e.cant}</span>
+                            <div style="padding:6px 0;">
+                                ${itemsListHtml}
+                            </div>
+                            <div class="sol-meta">
                                 <span><i class="fa-regular fa-clock"></i> ${Components.formatDate(p.fecha_pedido)}</span>
                             </div>
                             <div class="m-card-actions">
                                 ${mActionsPendiente}
-                                <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${e.id}">
+                                <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${p.id}">
                                     <i class="fa-solid fa-trash"></i> Eliminar
                                 </button>
                             </div>
@@ -1701,8 +1722,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.btn-deliver-pedido').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = btn.dataset.id;
-                const cantidad = btn.dataset.cantidad;
-                if (!confirm(`¿Confirmas la entrega de ${cantidad} unidad(es)? Se descontarán del inventario.`)) return;
+                if (!confirm(`¿Confirmas la entrega de este pedido? Se descontarán todos los artículos del inventario.`)) return;
                 try {
                     const res = await API.updatePedidoEstado(id, 'Entregado');
                     Components.showToast(res.message, res.success ? 'success' : 'error');
@@ -1767,40 +1787,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            let ok = 0;
-            let errores = [];
-
-            for (const item of state.pedidoCart) {
-                try {
-                    const res = await API.createPedido({
-                        articulo_id: item.id,
-                        cantidad: item.cantidad,
-                        solicitante,
-                        ip: state.myIp
-                    });
-                    if (res.success) ok++;
-                    else errores.push(item.nombre);
-                } catch (err) {
-                    errores.push(item.nombre);
-                }
-            }
-
-            if (ok > 0 && errores.length === 0) {
-                Components.showToast(`¡Pedido enviado! ${ok} artículo(s) registrados.`, 'success');
-            } else if (ok > 0) {
-                Components.showToast(`${ok} enviado(s). Fallaron: ${errores.join(', ')}`, 'warning');
-            } else {
-                Components.showToast('No se pudo registrar el pedido. Intenta de nuevo.', 'error');
-                return;
-            }
-
-            // El pedido YA quedó guardado: cualquier fallo al refrescar la vista no debe mostrarse como error del pedido
-            try {
+            const items = state.pedidoCart.map(item => ({
+                articulo_id: item.id,
+                cantidad: item.cantidad
+            }));
+            const res = await API.createPedido({ items, solicitante });
+            Components.showToast(res.message, res.success ? 'success' : 'error');
+            if (res.success) {
                 document.getElementById('pedido-form').reset();
-                clearPedidoSelection();
+                state.pedidoCart = [];
+                renderPedidoCart();
                 fetchPedidoResultados('');
                 await renderMisSolicitudes();
-            } catch (_) {}
+            }
         } catch (error) {
             Components.showToast('Error al registrar el pedido', 'error');
         }

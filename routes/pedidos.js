@@ -1,5 +1,6 @@
 /**
  * Rutas de la API REST para Pedidos de Artículos (Solicitudes Internas)
+ * Usa pedido_grupo + pedido_detalle (múltiples artículos por solicitud).
  */
 
 const express = require('express');
@@ -18,44 +19,65 @@ function sanitize(str) {
 
 router.get('/', (req, res, next) => {
     try {
-        let sql, params;
+        let grupos;
 
         if (req.query.ip) {
             const ip = String(req.query.ip).substring(0, 45);
-            sql = `
+            grupos = db.prepare(`
                 SELECT
-                    p.id, p.articulo_id, p.cantidad, p.solicitante, p.ip,
-                    p.estado, p.fecha_pedido,
-                    a.nombre as articulo_nombre, a.sku, a.cantidad_disponible, a.imagen,
-                    c.nombre as categoria_nombre
-                FROM pedidos p
-                JOIN articulos a ON p.articulo_id = a.id
-                JOIN categorias c ON a.categoria_id = c.id
-                WHERE p.ip = ?
-                  AND (p.estado = 'Pendiente'
-                       OR (p.estado != 'Pendiente' AND p.fecha_actualizacion > datetime('now', '-10 minutes')))
-                ORDER BY CASE p.estado WHEN 'Pendiente' THEN 0 ELSE 1 END, p.fecha_pedido DESC
-            `;
-            params = [ip];
+                    g.id, g.solicitante, g.ip, g.estado, g.fecha_pedido, g.fecha_actualizacion
+                FROM pedido_grupo g
+                WHERE g.ip = ?
+                  AND (g.estado = 'Pendiente'
+                       OR (g.estado != 'Pendiente' AND g.fecha_actualizacion > datetime('now', '-10 minutes')))
+                ORDER BY CASE g.estado WHEN 'Pendiente' THEN 0 ELSE 1 END, g.fecha_pedido DESC
+            `).all(ip);
         } else {
-            sql = `
+            grupos = db.prepare(`
                 SELECT
-                    p.id, p.articulo_id, p.cantidad, p.solicitante, p.ip,
-                    p.estado, p.fecha_pedido,
-                    a.nombre as articulo_nombre, a.sku, a.cantidad_disponible, a.imagen,
-                    c.nombre as categoria_nombre
-                FROM pedidos p
-                JOIN articulos a ON p.articulo_id = a.id
-                JOIN categorias c ON a.categoria_id = c.id
-                WHERE p.estado = 'Pendiente'
-                   OR (p.estado != 'Pendiente' AND p.fecha_actualizacion > datetime('now', '-10 minutes'))
-                ORDER BY CASE p.estado WHEN 'Pendiente' THEN 0 ELSE 1 END, p.fecha_pedido DESC
-            `;
-            params = [];
+                    g.id, g.solicitante, g.ip, g.estado, g.fecha_pedido, g.fecha_actualizacion
+                FROM pedido_grupo g
+                WHERE g.estado = 'Pendiente'
+                   OR (g.estado != 'Pendiente' AND g.fecha_actualizacion > datetime('now', '-10 minutes'))
+                ORDER BY CASE g.estado WHEN 'Pendiente' THEN 0 ELSE 1 END, g.fecha_pedido DESC
+            `).all();
         }
 
-        const pedidos = db.prepare(sql).all(...params);
-        res.json({ success: true, data: pedidos });
+        if (grupos.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const grupoIds = grupos.map(g => g.id);
+        const placeholders = grupoIds.map(() => '?').join(',');
+
+        const detalles = db.prepare(`
+            SELECT
+                d.id, d.grupo_id, d.articulo_id, d.cantidad,
+                a.nombre as articulo_nombre, a.sku, a.imagen,
+                c.nombre as categoria_nombre
+            FROM pedido_detalle d
+            JOIN articulos a ON d.articulo_id = a.id
+            JOIN categorias c ON a.categoria_id = c.id
+            WHERE d.grupo_id IN (${placeholders})
+        `).all(...grupoIds);
+
+        const detallesPorGrupo = {};
+        for (const d of detalles) {
+            if (!detallesPorGrupo[d.grupo_id]) detallesPorGrupo[d.grupo_id] = [];
+            detallesPorGrupo[d.grupo_id].push(d);
+        }
+
+        const data = grupos.map(g => ({
+            id: g.id,
+            solicitante: g.solicitante,
+            ip: g.ip,
+            estado: g.estado,
+            fecha_pedido: g.fecha_pedido,
+            fecha_actualizacion: g.fecha_actualizacion,
+            items: detallesPorGrupo[g.id] || []
+        }));
+
+        res.json({ success: true, data });
     } catch (error) {
         next(error);
     }
@@ -63,45 +85,61 @@ router.get('/', (req, res, next) => {
 
 router.post('/', (req, res, next) => {
     try {
-        const { articulo_id, cantidad, solicitante = '' } = req.body;
+        const { items, solicitante = '' } = req.body;
         const errors = [];
 
-        if (!articulo_id || isNaN(Number(articulo_id)) || Number(articulo_id) <= 0) {
-            errors.push('Debe seleccionar un artículo válido.');
-        }
-        if (cantidad === undefined || cantidad === null || isNaN(Number(cantidad)) ||
-            !Number.isInteger(Number(cantidad)) || Number(cantidad) <= 0) {
-            errors.push('La cantidad debe ser un número entero mayor a 0.');
-        } else if (Number(cantidad) > MAX_PEDIDO_QTY) {
-            errors.push(`La cantidad no puede exceder ${MAX_PEDIDO_QTY.toLocaleString()} unidades.`);
+        if (!Array.isArray(items) || items.length === 0) {
+            errors.push('Debe incluir al menos un artículo en el pedido.');
         }
 
         const solStr = String(solicitante).trim();
-        if (solStr.length > MAX_SOLICITANTE_LENGTH) {
+        if (!solStr) {
+            errors.push('El nombre del solicitante es obligatorio.');
+        } else if (solStr.length > MAX_SOLICITANTE_LENGTH) {
             errors.push(`El nombre del solicitante no puede exceder ${MAX_SOLICITANTE_LENGTH} caracteres.`);
         }
 
         if (errors.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Error de validación en el pedido',
-                errors
-            });
+            return res.status(400).json({ success: false, message: errors.join(' ') });
         }
 
-        const art = db.prepare('SELECT id, nombre FROM articulos WHERE id = ?').get(parseInt(articulo_id, 10));
-        if (!art) {
-            return res.status(400).json({ success: false, message: 'El artículo seleccionado no existe.' });
+        if (Array.isArray(items)) {
+            for (let i = 0; i < items.length; i++) {
+                const it = items[i];
+                if (!it.articulo_id || isNaN(Number(it.articulo_id)) || Number(it.articulo_id) <= 0) {
+                    errors.push(`Artículo #${i + 1}: ID inválido.`);
+                }
+                if (it.cantidad === undefined || it.cantidad === null || isNaN(Number(it.cantidad)) ||
+                    !Number.isInteger(Number(it.cantidad)) || Number(it.cantidad) <= 0) {
+                    errors.push(`Artículo #${i + 1}: cantidad inválida.`);
+                } else if (Number(it.cantidad) > MAX_PEDIDO_QTY) {
+                    errors.push(`Artículo #${i + 1}: la cantidad no puede exceder ${MAX_PEDIDO_QTY.toLocaleString()}.`);
+                }
+            }
         }
 
-        db.prepare(`
-            INSERT INTO pedidos (articulo_id, cantidad, solicitante, ip)
-            VALUES (?, ?, ?, ?)
-        `).run(parseInt(articulo_id, 10), parseInt(cantidad, 10), sanitize(solStr), getClientIp(req));
+        if (errors.length > 0) {
+            return res.status(400).json({ success: false, message: errors.join(' ') });
+        }
+
+        const ip = getClientIp(req);
+
+        const insertGrupo = db.prepare("INSERT INTO pedido_grupo (solicitante, ip) VALUES (?, ?)");
+        const insertDetalle = db.prepare("INSERT INTO pedido_detalle (grupo_id, articulo_id, cantidad) VALUES (?, ?, ?)");
+
+        const crearPedido = db.transaction(() => {
+            const g = insertGrupo.run(sanitize(solStr), ip);
+            const grupoId = g.lastInsertRowid;
+            for (const it of items) {
+                insertDetalle.run(grupoId, parseInt(it.articulo_id, 10), parseInt(it.cantidad, 10));
+            }
+        });
+
+        crearPedido();
 
         res.status(201).json({
             success: true,
-            message: `Pedido de '${art.nombre}' registrado correctamente.`
+            message: 'Pedido registrado correctamente.'
         });
     } catch (error) {
         next(error);
@@ -120,48 +158,53 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
             });
         }
 
-        const pedido = db.prepare('SELECT * FROM pedidos WHERE id = ?').get(id);
-        if (!pedido) {
+        const grupo = db.prepare('SELECT * FROM pedido_grupo WHERE id = ?').get(id);
+        if (!grupo) {
             return res.status(404).json({ success: false, message: 'No se encontró el pedido.' });
         }
-        if (pedido.estado !== 'Pendiente') {
+        if (grupo.estado !== 'Pendiente') {
             return res.status(400).json({
                 success: false,
                 message: 'El pedido ya fue procesado y no puede modificarse.'
             });
         }
 
+        const detalles = db.prepare(`
+            SELECT d.*, a.nombre as articulo_nombre, a.sku, a.cantidad_disponible
+            FROM pedido_detalle d
+            JOIN articulos a ON d.articulo_id = a.id
+            WHERE d.grupo_id = ?
+        `).all(id);
+
         if (estado === 'Entregado') {
-            const art = db.prepare('SELECT nombre, sku, cantidad_disponible FROM articulos WHERE id = ?').get(pedido.articulo_id);
-            if (!art) {
-                return res.status(400).json({ success: false, message: 'El artículo del pedido ya no existe.' });
-            }
-            if (art.cantidad_disponible < pedido.cantidad) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Stock insuficiente para entregar este pedido.'
-                });
+            for (const det of detalles) {
+                if (det.cantidad_disponible < det.cantidad) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Stock insuficiente para "${det.articulo_nombre}" (disponible: ${det.cantidad_disponible}, solicitado: ${det.cantidad}).`
+                    });
+                }
             }
 
             const entregar = db.transaction(() => {
-                db.prepare('UPDATE articulos SET cantidad_disponible = cantidad_disponible - ? WHERE id = ?')
-                    .run(pedido.cantidad, pedido.articulo_id);
-                db.prepare("UPDATE pedidos SET estado = 'Entregado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?")
-                    .run(id);
-                db.prepare(`INSERT INTO movimientos (articulo_id, articulo_nombre, articulo_sku, tipo, cantidad, motivo, usuario) VALUES (?, ?, ?, 'Salida', ?, ?, ?)`).run(
-                    pedido.articulo_id, art.nombre, art.sku, pedido.cantidad,
-                    `Pedido #${id}`, pedido.solicitante || 'Desconocido'
-                );
+                for (const det of detalles) {
+                    db.prepare('UPDATE articulos SET cantidad_disponible = cantidad_disponible - ? WHERE id = ?')
+                        .run(det.cantidad, det.articulo_id);
+                    db.prepare(`INSERT INTO movimientos (articulo_id, articulo_nombre, articulo_sku, tipo, cantidad, motivo, usuario) VALUES (?, ?, ?, 'Salida', ?, ?, ?)`)
+                        .run(det.articulo_id, det.articulo_nombre, det.sku, det.cantidad,
+                            `Pedido #${id}`, grupo.solicitante || 'Desconocido');
+                }
+                db.prepare("UPDATE pedido_grupo SET estado = 'Entregado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?").run(id);
             });
             entregar();
 
             return res.json({
                 success: true,
-                message: `Pedido entregado. Se descontaron ${pedido.cantidad} unidades.`
+                message: `Pedido entregado. ${detalles.length} artículo(s) descontado(s) del inventario.`
             });
         }
 
-        db.prepare("UPDATE pedidos SET estado = 'Cancelado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+        db.prepare("UPDATE pedido_grupo SET estado = 'Cancelado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?").run(id);
         res.json({ success: true, message: 'El pedido ha sido cancelado.' });
     } catch (error) {
         next(error);
@@ -170,7 +213,7 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
 
 router.delete('/:id', requireAdmin, (req, res, next) => {
     try {
-        const result = db.prepare('DELETE FROM pedidos WHERE id = ?').run(req.params.id);
+        const result = db.prepare('DELETE FROM pedido_grupo WHERE id = ?').run(req.params.id);
         if (result.changes === 0) {
             return res.status(404).json({ success: false, message: 'No se encontró el pedido.' });
         }
