@@ -1468,8 +1468,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="ped-item-info">
                         <strong>${escapeHtml(a.nombre)}</strong>
                         <small><span class="sku-code">${escapeHtml(a.sku)}</span></small>
+                        <small class="ped-item-stock">Stock: ${a.cantidad_disponible}</small>
                     </span>
-                    <span class="ped-item-stock">Stock: ${a.cantidad_disponible}</span>
                 </button>
             `;}).join('');
 
