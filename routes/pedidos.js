@@ -151,10 +151,10 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
         const { id } = req.params;
         const { estado } = req.body;
 
-        if (!['Entregado', 'Cancelado'].includes(estado)) {
+        if (!['En Proceso', 'Entregado', 'Cancelado'].includes(estado)) {
             return res.status(400).json({
                 success: false,
-                message: "Estado inválido. Use 'Entregado' o 'Cancelado'."
+                message: "Estado inválido. Use 'En Proceso', 'Entregado' o 'Cancelado'."
             });
         }
 
@@ -162,21 +162,32 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
         if (!grupo) {
             return res.status(404).json({ success: false, message: 'No se encontró el pedido.' });
         }
-        if (grupo.estado !== 'Pendiente') {
+
+        if (grupo.estado === 'Entregado' || grupo.estado === 'Cancelado') {
             return res.status(400).json({
                 success: false,
                 message: 'El pedido ya fue procesado y no puede modificarse.'
             });
         }
 
-        const detalles = db.prepare(`
-            SELECT d.*, a.nombre as articulo_nombre, a.sku, a.cantidad_disponible
-            FROM pedido_detalle d
-            JOIN articulos a ON d.articulo_id = a.id
-            WHERE d.grupo_id = ?
-        `).all(id);
+        if (grupo.estado === 'Pendiente' && estado === 'En Proceso') {
+            db.prepare("UPDATE pedido_grupo SET estado = 'En Proceso', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+            return res.json({ success: true, message: 'Pedido marcado como en proceso.' });
+        }
+
+        if (grupo.estado === 'En Proceso' && estado === 'Cancelado') {
+            db.prepare("UPDATE pedido_grupo SET estado = 'Cancelado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+            return res.json({ success: true, message: 'El pedido ha sido cancelado.' });
+        }
 
         if (estado === 'Entregado') {
+            const detalles = db.prepare(`
+                SELECT d.*, a.nombre as articulo_nombre, a.sku, a.cantidad_disponible
+                FROM pedido_detalle d
+                JOIN articulos a ON d.articulo_id = a.id
+                WHERE d.grupo_id = ?
+            `).all(id);
+
             for (const det of detalles) {
                 if (det.cantidad_disponible < det.cantidad) {
                     return res.status(400).json({
@@ -204,8 +215,39 @@ router.put('/:id/estado', requireAdmin, (req, res, next) => {
             });
         }
 
+        if (grupo.estado === 'Pendiente' && estado === 'Cancelado') {
+            db.prepare("UPDATE pedido_grupo SET estado = 'Cancelado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+            return res.json({ success: true, message: 'El pedido ha sido cancelado.' });
+        }
+
+        return res.status(400).json({
+            success: false,
+            message: 'Transición de estado no permitida.'
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.put('/:id/cancelar-personal', (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const grupo = db.prepare('SELECT * FROM pedido_grupo WHERE id = ?').get(id);
+        if (!grupo) {
+            return res.status(404).json({ success: false, message: 'No se encontró el pedido.' });
+        }
+
+        const clientIp = getClientIp(req);
+        if (grupo.ip !== clientIp) {
+            return res.status(403).json({ success: false, message: 'No tienes permiso para cancelar este pedido.' });
+        }
+
+        if (grupo.estado !== 'Pendiente') {
+            return res.status(400).json({ success: false, message: 'Solo se pueden cancelar pedidos pendientes.' });
+        }
+
         db.prepare("UPDATE pedido_grupo SET estado = 'Cancelado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?").run(id);
-        res.json({ success: true, message: 'El pedido ha sido cancelado.' });
+        res.json({ success: true, message: 'Pedido cancelado correctamente.' });
     } catch (error) {
         next(error);
     }

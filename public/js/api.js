@@ -119,6 +119,14 @@ const API = {
         return await response.json();
     },
 
+    async cancelPedidoPersonal(id) {
+        const response = await fetch(`${API_BASE}/pedidos/${parseInt(id, 10)}/cancelar-personal`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getSessionHeaders() }
+        });
+        return await response.json();
+    },
+
     async deletePedido(id) {
         const response = await fetch(`${API_BASE}/pedidos/${parseInt(id, 10)}`, {
             method: 'DELETE',

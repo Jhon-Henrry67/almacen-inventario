@@ -81,7 +81,7 @@ function initDatabase() {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     solicitante TEXT NOT NULL DEFAULT '',
                     ip TEXT NOT NULL DEFAULT '',
-                    estado TEXT NOT NULL DEFAULT 'Pendiente' CHECK(estado IN ('Pendiente', 'Entregado', 'Cancelado')),
+                    estado TEXT NOT NULL DEFAULT 'Pendiente' CHECK(estado IN ('Pendiente', 'En Proceso', 'Entregado', 'Cancelado')),
                     fecha_pedido DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
@@ -112,6 +112,26 @@ function initDatabase() {
                 migrate();
                 console.log(`🛠️ Migrados ${oldPedidos.length} pedidos existentes.`);
             }
+        }
+
+        // Migración: agregar 'En Proceso' al CHECK constraint de pedido_grupo
+        const grupoCheck = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='pedido_grupo'").get();
+        if (grupoCheck && !grupoCheck.sql.includes("'En Proceso'")) {
+            db.exec(`
+                CREATE TABLE pedido_grupo_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    solicitante TEXT NOT NULL DEFAULT '',
+                    ip TEXT NOT NULL DEFAULT '',
+                    estado TEXT NOT NULL DEFAULT 'Pendiente' CHECK(estado IN ('Pendiente', 'En Proceso', 'Entregado', 'Cancelado')),
+                    fecha_pedido DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                INSERT INTO pedido_grupo_new SELECT id, solicitante, ip, estado, fecha_pedido, fecha_actualizacion FROM pedido_grupo;
+                DROP TABLE pedido_grupo;
+                ALTER TABLE pedido_grupo_new RENAME TO pedido_grupo;
+                CREATE INDEX IF NOT EXISTS idx_pedido_grupo_estado ON pedido_grupo(estado);
+            `);
+            console.log('🛠️ Migración aplicada: pedido_grupo CHECK constraint actualizado con "En Proceso".');
         }
 
         // Verificar si la tabla categorias tiene registros; si no, ejecutar seed

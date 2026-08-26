@@ -26,6 +26,7 @@ const Components = {
         let icon = 'fa-circle-check';
         if (type === 'error') icon = 'fa-circle-xmark';
         if (type === 'warning') icon = 'fa-triangle-exclamation';
+        if (type === 'info') icon = 'fa-circle-info';
 
         toast.innerHTML = `<i class="fa-solid ${icon}"></i>`;
         const span = document.createElement('span');

@@ -29,7 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
         pedSearchTimeout: null,
         searchTimeout: null,
         pedidosPollTimer: null,
-        historialPage: 1
+        historialPage: 1,
+        lastPedidoStatuses: {},
+        lastPedidoCount: 0
     };
 
     // --------------------------------------------------
@@ -102,6 +104,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function applyRole(role) {
         state.role = role;
+        state.lastPedidoStatuses = {};
+        state.lastPedidoCount = 0;
         sessionStorage.setItem('ap_role', role);
         document.body.classList.toggle('role-personal', role === 'personal');
         document.body.classList.toggle('role-admin', role === 'admin');
@@ -201,6 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btn-logout').addEventListener('click', async () => {
             clearInterval(state.pedidosPollTimer);
             state.pedidosPollTimer = null;
+            state.lastPedidoStatuses = {};
+            state.lastPedidoCount = 0;
             try { await API.adminLogout(); } catch (_) {}
             sessionStorage.removeItem('ap_role');
             sessionStorage.removeItem('ap_session');
@@ -1194,11 +1200,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const totalPedidos = res.data.length;
             const pendientes = res.data.filter(p => p.estado === 'Pendiente').length;
+            const enProceso = res.data.filter(p => p.estado === 'En Proceso').length;
             const entregados = res.data.filter(p => p.estado === 'Entregado').length;
             const cancelados = res.data.filter(p => p.estado === 'Cancelado').length;
             doc.setFontSize(11);
             doc.setTextColor(44, 62, 80);
-            doc.text(`Total: ${totalPedidos} | Pendientes: ${pendientes} | Aceptados: ${entregados} | Cancelados: ${cancelados}`, 14, 36);
+            doc.text(`Total: ${totalPedidos} | Pendientes: ${pendientes} | En proceso: ${enProceso} | Entregados: ${entregados} | Cancelados: ${cancelados}`, 14, 36);
 
             const tableBody = [];
             let rowNum = 0;
@@ -1241,6 +1248,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             data.cell.styles.fontStyle = 'bold';
                         } else if (val === 'Cancelado') {
                             data.cell.styles.textColor = [239, 68, 68];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else if (val === 'En Proceso') {
+                            data.cell.styles.textColor = [59, 130, 246];
                             data.cell.styles.fontStyle = 'bold';
                         } else {
                             data.cell.styles.textColor = [245, 158, 11];
@@ -1553,6 +1563,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const meta = {
                 'Pendiente': { cls: 'b-espera', icon: 'fa-hourglass-half', label: 'En espera' },
+                'En Proceso': { cls: 'b-proceso', icon: 'fa-clock', label: 'En proceso' },
                 'Entregado': { cls: 'b-ok', icon: 'fa-circle-check', label: 'Aceptada' },
                 'Cancelado': { cls: 'b-no', icon: 'fa-circle-xmark', label: 'Cancelada' }
             };
@@ -1560,6 +1571,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const recientes = [...res.data]
                 .sort((a, b) => new Date(b.fecha_pedido.replace(' ', 'T')) - new Date(a.fecha_pedido.replace(' ', 'T')))
                 .slice(0, 9);
+
+            const isFirstLoad = Object.keys(state.lastPedidoStatuses).length === 0;
+
+            for (const p of recientes) {
+                const prevEstado = state.lastPedidoStatuses[p.id];
+                if (!isFirstLoad && prevEstado && prevEstado !== p.estado) {
+                    if (p.estado === 'En Proceso') {
+                        Components.showToast(`Tu pedido #${p.id} está en proceso`, 'info');
+                    } else if (p.estado === 'Entregado') {
+                        Components.showToast(`¡Tu pedido #${p.id} fue entregado!`, 'success');
+                    } else if (p.estado === 'Cancelado') {
+                        Components.showToast(`Tu pedido #${p.id} fue cancelado`, 'warning');
+                    }
+                }
+                state.lastPedidoStatuses[p.id] = p.estado;
+            }
 
             grid.innerHTML = recientes.map(p => {
                 const m = meta[p.estado] || meta['Pendiente'];
@@ -1573,6 +1600,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span style="font-size:0.82rem;font-weight:700;color:var(--text-secondary);">x${it.cantidad}</span>
                     </div>
                 `).join('');
+
+                const cancelBtn = p.estado === 'Pendiente' ? `
+                    <button class="btn btn-sm btn-outline btn-cancel-mi-pedido" data-id="${p.id}" title="Cancelar pedido">
+                        <i class="fa-solid fa-ban"></i> Cancelar
+                    </button>` : '';
+
                 return `
                     <div class="sol-card">
                         <div class="sol-top" style="display:flex;align-items:center;gap:10px;">
@@ -1584,9 +1617,24 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span><i class="fa-solid fa-user"></i> ${escapeHtml(p.solicitante) || '—'}</span>
                             <span><i class="fa-solid fa-layer-group"></i> ${p.items.length} artículo(s)</span>
                         </div>
+                        ${cancelBtn ? `<div style="margin-top:8px;">${cancelBtn}</div>` : ''}
                     </div>
                 `;
             }).join('');
+
+            grid.querySelectorAll('.btn-cancel-mi-pedido').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    if (!confirm('¿Cancelar este pedido?')) return;
+                    try {
+                        const res = await API.cancelPedidoPersonal(id);
+                        Components.showToast(res.message, res.success ? 'success' : 'error');
+                        if (res.success) renderMisSolicitudes();
+                    } catch (err) {
+                        Components.showToast('Error al cancelar el pedido', 'error');
+                    }
+                });
+            });
         } catch (error) {
             Components.showToast('Error al cargar tus solicitudes', 'error');
         }
@@ -1604,12 +1652,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.data.length === 0) {
                 tbody.innerHTML = '';
                 empty.style.display = 'flex';
+                state.lastPedidoCount = 0;
                 return;
             }
 
             empty.style.display = 'none';
             tbody.innerHTML = res.data.map(p => {
                 const badgeClass = p.estado === 'Pendiente' ? 'badge-warning'
+                    : p.estado === 'En Proceso' ? 'badge-info'
                     : p.estado === 'Entregado' ? 'badge-success' : 'badge-danger';
                 const badgeHtml = `<span class="badge ${badgeClass}"><i class="fa-solid fa-circle-info"></i> ${escapeHtml(p.estado)}</span>`;
 
@@ -1629,22 +1679,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 const firstImg = p.items.length > 0 ? getArtImg(p.items[0].imagen) : '';
                 const photo = firstImg ? `<img src="${firstImg}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid var(--border-color);margin-right:10px;vertical-align:middle;" alt="">` : '';
 
-                const actionsPendiente = p.estado === 'Pendiente' ? `
-                    <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}" title="Entregar pedido">
-                        <i class="fa-solid fa-check"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}" title="Cancelar pedido">
-                        <i class="fa-solid fa-ban"></i>
-                    </button>
-                ` : '';
-                const mActionsPendiente = p.estado === 'Pendiente' ? `
-                    <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}">
-                        <i class="fa-solid fa-check"></i> Entregar
-                    </button>
-                    <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}">
-                        <i class="fa-solid fa-ban"></i> Cancelar
-                    </button>
-                ` : '';
+                let actionsHtml = '';
+                let mActionsHtml = '';
+
+                if (p.estado === 'Pendiente') {
+                    actionsHtml = `
+                        <button class="btn btn-sm btn-warning btn-process-pedido" data-id="${p.id}" title="Marcar en proceso">
+                            <i class="fa-solid fa-clock"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}" title="Cancelar pedido">
+                            <i class="fa-solid fa-ban"></i>
+                        </button>`;
+                    mActionsHtml = `
+                        <button class="btn btn-sm btn-warning btn-process-pedido" data-id="${p.id}">
+                            <i class="fa-solid fa-clock"></i> En Proceso
+                        </button>
+                        <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}">
+                            <i class="fa-solid fa-ban"></i> Cancelar
+                        </button>`;
+                } else if (p.estado === 'En Proceso') {
+                    actionsHtml = `
+                        <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}" title="Entregar pedido">
+                            <i class="fa-solid fa-check"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}" title="Cancelar pedido">
+                            <i class="fa-solid fa-ban"></i>
+                        </button>`;
+                    mActionsHtml = `
+                        <button class="btn btn-sm btn-success btn-deliver-pedido" data-id="${p.id}">
+                            <i class="fa-solid fa-check"></i> Entregar
+                        </button>
+                        <button class="btn btn-sm btn-outline btn-cancel-pedido" data-id="${p.id}">
+                            <i class="fa-solid fa-ban"></i> Cancelar
+                        </button>`;
+                }
 
                 return `
                     <tr>
@@ -1663,7 +1731,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td class="text-center">${badgeHtml}</td>
                         <td><small class="text-muted">${Components.formatDate(p.fecha_pedido)}</small></td>
                         <td class="text-right">
-                            ${actionsPendiente}
+                            ${actionsHtml}
                             <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${p.id}" title="Eliminar pedido">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
@@ -1685,7 +1753,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span><i class="fa-regular fa-clock"></i> ${Components.formatDate(p.fecha_pedido)}</span>
                             </div>
                             <div class="m-card-actions">
-                                ${mActionsPendiente}
+                                ${mActionsHtml}
                                 <button class="btn btn-sm btn-danger btn-delete-pedido" data-id="${p.id}">
                                     <i class="fa-solid fa-trash"></i> Eliminar
                                 </button>
@@ -1696,12 +1764,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('');
 
             bindPedidoRowEvents();
+
+            const pendienteCount = res.data.filter(p => p.estado === 'Pendiente').length;
+            if (pendienteCount > state.lastPedidoCount && state.lastPedidoCount > 0) {
+                const nuevoPedido = res.data.find(p => p.estado === 'Pendiente');
+                const solicitante = nuevoPedido ? (escapeHtml(nuevoPedido.solicitante) || 'Desconocido') : '';
+                Components.showToast(`Nuevo pedido recibido de ${solicitante}`, 'info', 5000);
+            }
+            state.lastPedidoCount = pendienteCount;
         } catch (error) {
             Components.showToast('Error al cargar los pedidos', 'error');
         }
     }
 
     function bindPedidoRowEvents() {
+        document.querySelectorAll('.btn-process-pedido').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                if (!confirm('¿Marcar este pedido como "En Proceso"?' )) return;
+                try {
+                    const res = await API.updatePedidoEstado(id, 'En Proceso');
+                    Components.showToast(res.message, res.success ? 'success' : 'error');
+                    if (res.success) loadPedidos();
+                } catch (err) {
+                    Components.showToast('Error al actualizar el pedido', 'error');
+                }
+            });
+        });
+
         document.querySelectorAll('.btn-deliver-pedido').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = btn.dataset.id;

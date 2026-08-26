@@ -763,6 +763,7 @@ h1, h2, h3, h4, .brand-title {
 .badge-warning { background-color: var(--warning-light); color: var(--warning); }
 .badge-danger { background-color: var(--danger-light); color: var(--danger); }
 .badge-secondary { background-color: var(--primary-light); color: var(--primary); }
+.badge-info { background-color: #dbeafe; color: #1d4ed8; }
 
 .sku-code {
     font-family: monospace;
@@ -1129,6 +1130,7 @@ h1, h2, h3, h4, .brand-title {
 .toast-success { border-left: 4px solid var(--success); }
 .toast-error { border-left: 4px solid var(--danger); }
 .toast-warning { border-left: 4px solid var(--warning); }
+.toast-info { border-left: 4px solid var(--primary); }
 
 @keyframes slideInRight {
     from { transform: translateX(100%); opacity: 0; }
@@ -1779,6 +1781,7 @@ body.role-personal .topbar-actions {
 .sol-badge.b-espera { background-color: var(--warning-light); color: #b45309; }
 .sol-badge.b-ok { background-color: var(--success-light); color: #047857; }
 .sol-badge.b-no { background-color: var(--danger-light); color: #b91c1c; }
+.sol-badge.b-proceso { background-color: #dbeafe; color: #1d4ed8; }
 
 .sol-meta {
     display: flex;
