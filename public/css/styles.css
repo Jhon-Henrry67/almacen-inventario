@@ -1289,7 +1289,7 @@ body.role-personal .topbar-actions {
 /* Adaptable: la columna del formulario crece con el espacio disponible */
 .pedidos-layout {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: minmax(340px, 520px) minmax(0, 1fr);
     gap: clamp(16px, 2vw, 26px);
     align-items: start;
 }
@@ -1304,9 +1304,7 @@ body.role-personal .topbar-actions {
 }
 
 .pedido-list-card {
-    padding: clamp(14px, 2vw, 20px);
-    max-height: 500px;
-    overflow-y: auto;
+    padding: clamp(20px, 2.6vw, 30px);
 }
 
 @media (min-width: 1281px) {
@@ -1480,21 +1478,21 @@ body.role-personal .topbar-actions {
 
 /* Lista de artículos elegidos (carrito) */
 .ped-cart {
-    margin-top: 18px;
-    padding-top: 18px;
-    border-top: 2px solid var(--border-color);
-    border-radius: 0;
-    background-color: transparent;
+    margin-top: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-card-hover);
+    overflow: hidden;
 }
 
 .ped-cart-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 0;
-    font-size: 0.88rem;
+    padding: 11px 14px;
+    background-color: var(--primary-light);
+    font-size: 0.86rem;
     font-weight: 600;
-    color: var(--text-primary);
 }
 
 .ped-cart-clear {
@@ -1516,11 +1514,8 @@ body.role-personal .topbar-actions {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    background-color: var(--bg-card);
-    margin-bottom: 8px;
+    padding: 11px 14px;
+    border-top: 1px solid var(--border-color);
 }
 
 .ped-ci-info {
@@ -1616,9 +1611,9 @@ body.role-personal .topbar-actions {
 
 /* Tarjetas de estado de solicitudes */
 .mis-solicitudes-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 14px;
 }
 
 /* ====================================================================
@@ -2003,7 +1998,7 @@ body.role-personal .topbar-actions {
     .pedidos-hero { flex-direction: column; text-align: center; }
 
     /* Solicitudes grid */
-    .mis-solicitudes-grid { display: grid; grid-template-columns: 1fr; }
+    .mis-solicitudes-grid { grid-template-columns: 1fr; }
 
     /* Categorías */
     .categories-layout { grid-template-columns: 1fr; }
