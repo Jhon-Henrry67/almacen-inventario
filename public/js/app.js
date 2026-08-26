@@ -340,20 +340,6 @@ document.addEventListener('DOMContentLoaded', () => {
             exportPedidosPDF();
         });
 
-        // Exportar Excel Pedidos
-        document.getElementById('btn-export-pedidos-excel').addEventListener('click', (e) => {
-            e.stopPropagation();
-            document.getElementById('dropdown-pdf-menu').classList.remove('show');
-            exportPedidosExcel();
-        });
-
-        // Exportar Excel Stock
-        document.getElementById('btn-export-stock-excel').addEventListener('click', (e) => {
-            e.stopPropagation();
-            document.getElementById('dropdown-pdf-menu').classList.remove('show');
-            exportStockExcel();
-        });
-
 
 
         // Botones de incremento/decremento rápido de stock
@@ -1897,54 +1883,5 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (targetPage) loadHistorial(targetPage);
             });
         });
-    }
-
-    // --------------------------------------------------
-    // Exportar a Excel
-    // --------------------------------------------------
-    function exportPedidosExcel() {
-        API.getPedidos().then(res => {
-            if (!res.success || res.data.length === 0) {
-                Components.showToast('No hay pedidos para exportar', 'warning');
-                return;
-            }
-            const rows = res.data.map(p => ({
-                'ID': p.id,
-                'Artículo': p.articulo_nombre,
-                'SKU': p.sku,
-                'Solicitante': p.solicitante || '—',
-                'Cantidad': p.cantidad,
-                'Estado': p.estado,
-                'Fecha': p.fecha_pedido
-            }));
-            const ws = XLSX.utils.json_to_sheet(rows);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
-            XLSX.writeFile(wb, `reporte_pedidos_${new Date().toISOString().slice(0,10)}.xlsx`);
-            Components.showToast('Excel de pedidos descargado', 'success');
-        }).catch(() => Components.showToast('Error al exportar pedidos', 'error'));
-    }
-
-    function exportStockExcel() {
-        API.getArticles({ limit: 1000 }).then(res => {
-            if (!res.success || res.data.length === 0) {
-                Components.showToast('No hay artículos para exportar', 'warning');
-                return;
-            }
-            const rows = res.data.map(a => ({
-                'SKU': a.sku,
-                'Artículo': a.nombre,
-                'Descripción': a.descripcion || '',
-                'Categoría': a.categoria_nombre,
-                'Stock Disponible': a.cantidad_disponible,
-                'Fecha Ingreso': a.fecha_ingreso,
-                'Última Actualización': a.ultima_actualizacion
-            }));
-            const ws = XLSX.utils.json_to_sheet(rows);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
-            XLSX.writeFile(wb, `reporte_inventario_${new Date().toISOString().slice(0,10)}.xlsx`);
-            Components.showToast('Excel de inventario descargado', 'success');
-        }).catch(() => Components.showToast('Error al exportar inventario', 'error'));
     }
 });

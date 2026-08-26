@@ -1850,13 +1850,6 @@ body.role-personal .topbar-actions {
     font-family: inherit;
 }
 
-/* Dropdown divider */
-.dropdown-pdf-divider {
-    height: 1px;
-    background: var(--border-color);
-    margin: 4px 8px;
-}
-
 @media (max-width: 768px) {
     .mobile-menu-btn { display: flex; }
 
