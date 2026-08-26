@@ -1394,7 +1394,7 @@ body.role-personal .topbar-actions {
     display: flex;
     flex-direction: column;
     gap: 9px;
-    max-height: 320px;
+    max-height: 260px;
     overflow-y: auto;
     margin-top: 10px;
     padding-right: 3px;
@@ -1583,12 +1583,30 @@ body.role-personal .topbar-actions {
     background-color: var(--danger-light);
 }
 
+.ped-two-col {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.ped-col-left {
+    flex: 2;
+    min-width: 0;
+}
+
+.ped-col-right {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
 .ped-submit {
     width: 100%;
     justify-content: center;
     padding: 16px;
     font-size: 1.05rem;
-    margin-top: 24px;
     letter-spacing: 0.2px;
 }
 
@@ -1988,6 +2006,10 @@ body.role-personal .topbar-actions {
 
     /* Paginación */
     .pagination-bar { flex-direction: column; align-items: center; gap: 10px; }
+
+    /* Pedido dos columnas → apilar */
+    .ped-two-col { flex-direction: column; }
+    .ped-col-left, .ped-col-right { flex: 1; min-width: 0; }
 
     /* Modales */
     .modal-card { padding: 18px; max-width: 100%; max-height: 85vh; }

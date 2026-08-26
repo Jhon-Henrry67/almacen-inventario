@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <!-- Estilos CSS -->
-    <link rel="stylesheet" href="css/styles.css?v=8">
+    <link rel="stylesheet" href="css/styles.css?v=10">
     
     <!-- jsPDF para generación de PDF en cliente -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -375,44 +375,46 @@
                             <h2><i class="fa-solid fa-cart-plus text-primary"></i> Nuevo Pedido</h2>
                         </div>
                         <form id="pedido-form">
-                            <!-- PASO 1: Artículos -->
-                            <div class="ped-section-title">
-                                <span class="ped-num">1</span> Elige los artículos
-                            </div>
-                            <div class="form-group">
-                                <div class="ped-search">
-                                    <i class="fa-solid fa-magnifying-glass"></i>
-                                    <input type="text" id="ped-buscador" placeholder="Escribe el nombre o SKU..." autocomplete="off">
-                                </div>
-                                <span class="form-hint">Haz clic en un resultado para agregarlo a tu lista.</span>
-                                <div id="ped-resultados" class="ped-resultados"></div>
-
-                                <!-- Lista de artículos elegidos -->
-                                <div id="ped-cart" class="ped-cart" style="display:none;">
-                                    <div class="ped-cart-head">
-                                        <span><i class="fa-solid fa-basket-shopping text-primary"></i> Tu lista · <b id="ped-cart-count">0</b> artículo(s)</span>
-                                        <button type="button" id="ped-cart-clear" class="ped-cart-clear"><i class="fa-solid fa-trash-can"></i> Vaciar</button>
+                            <div class="ped-two-col">
+                                <!-- PASO 1: Artículos -->
+                                <div class="ped-col-left">
+                                    <div class="ped-section-title">
+                                        <span class="ped-num">1</span> Elige los artículos
                                     </div>
-                                    <div id="ped-cart-items"></div>
+                                    <div class="form-group">
+                                        <div class="ped-search">
+                                            <i class="fa-solid fa-magnifying-glass"></i>
+                                            <input type="text" id="ped-buscador" placeholder="Buscar por nombre o SKU..." autocomplete="off">
+                                        </div>
+                                        <div id="ped-resultados" class="ped-resultados"></div>
+
+                                        <div id="ped-cart" class="ped-cart" style="display:none;">
+                                            <div class="ped-cart-head">
+                                                <span><i class="fa-solid fa-basket-shopping text-primary"></i> Tu lista · <b id="ped-cart-count">0</b></span>
+                                                <button type="button" id="ped-cart-clear" class="ped-cart-clear"><i class="fa-solid fa-trash-can"></i></button>
+                                            </div>
+                                            <div id="ped-cart-items"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- PASO 2: Solicitante -->
+                                <div class="ped-col-right">
+                                    <div class="ped-section-title">
+                                        <span class="ped-num">2</span> Solicitante
+                                    </div>
+                                    <div class="form-group">
+                                        <div class="ped-search">
+                                            <i class="fa-solid fa-user"></i>
+                                            <input type="text" id="ped-solicitante" placeholder="Tu nombre o área..." required>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary ped-submit">
+                                        <i class="fa-solid fa-paper-plane"></i> Enviar Pedido
+                                    </button>
                                 </div>
                             </div>
-
-                            <div class="ped-divider"></div>
-
-                            <!-- PASO 2: Solicitante -->
-                            <div class="form-group">
-                                <div class="ped-section-title">
-                                    <span class="ped-num">2</span> Solicitante
-                                </div>
-                                <div class="ped-search">
-                                    <i class="fa-solid fa-user"></i>
-                                    <input type="text" id="ped-solicitante" placeholder="Tu nombre o área..." required>
-                                </div>
-                            </div>
-
-                            <button type="submit" class="btn btn-primary ped-submit">
-                                <i class="fa-solid fa-paper-plane"></i> Enviar Pedido
-                            </button>
                         </form>
                     </div>
 
