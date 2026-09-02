@@ -142,6 +142,21 @@ function initDatabase() {
             db.exec(seedSql);
             console.log('✅ Base de datos inicializada con éxito.');
         }
+
+        // Migración: Reemplazar datos viejos de oficina con productos industriales
+        const oldCat = db.prepare("SELECT id FROM categorias WHERE id = 1 AND nombre LIKE '%Oficina%'").get();
+        if (oldCat && fs.existsSync(seedPath)) {
+            console.log('🔄 Migración: Reemplazando productos viejos con productos industriales...');
+            db.exec('DELETE FROM pedido_detalle');
+            db.exec('DELETE FROM pedido_grupo');
+            db.exec('DELETE FROM movimientos');
+            db.exec('DELETE FROM articulos');
+            db.exec('DELETE FROM categorias');
+            db.exec('DELETE FROM sessions');
+            const seedSql = fs.readFileSync(seedPath, 'utf8');
+            db.exec(seedSql);
+            console.log('✅ Migración completada: Productos industriales cargados.');
+        }
     } catch (error) {
         console.error('❌ Error inicializando la base de datos:', error.message);
         throw error;
