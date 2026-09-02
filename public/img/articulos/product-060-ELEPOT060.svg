@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="bg-60" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c62828;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#000;stop-opacity:0.6"/>
+    </linearGradient>
+    <pattern id="pat-60" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(60)">
+      <rect width="20" height="20" fill="transparent"/>
+      <circle cx="10" cy="10" r="1.5" fill="rgba(255,255,255,0.08)"/>
+    </pattern>
+    <filter id="shadow-60">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Fondo -->
+  <rect width="400" height="300" fill="url(#bg-60)"/>
+  <rect width="400" height="300" fill="url(#pat-60)"/>
+  
+  <!-- Borde decorativo -->
+  <rect x="8" y="8" width="384" height="284" rx="12" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+  
+  <!-- Icono grande centrado -->
+  <text x="200" y="120" font-size="60" text-anchor="middle" fill="rgba(255,255,255,0.12)">⚡</text>
+  
+  <!-- Barra de categoría -->
+  <rect x="0" y="0" width="400" height="40" fill="#c62828" opacity="0.9"/>
+  <text x="20" y="27" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">ELÉCTRICO</text>
+  <text x="380" y="27" font-family="Arial, sans-serif" font-size="12" fill="rgba(255,255,255,0.7)" text-anchor="end">#060</text>
+  
+  <!-- Nombre del producto -->
+  <text x="200" y="180" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white" text-anchor="middle" filter="url(#shadow-60)">Potenciómetro 133457</text>
+  
+  <!-- SKU -->
+  <rect x="127.5" y="195" width="145" height="28" rx="14" fill="rgba(0,0,0,0.4)"/>
+  <text x="200" y="214" font-family="monospace" font-size="13" fill="#ef9a9a" text-anchor="middle" font-weight="bold">ELE-POT-060</text>
+  
+  <!-- Línea decorativa -->
+  <line x1="60" y2="245" x2="340" y2="245" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  
+  <!-- Footer -->
+  <text x="200" y="270" font-family="Arial, sans-serif" font-size="10" fill="rgba(255,255,255,0.4)" text-anchor="middle">Freebuff Almacén</text>
+</svg>
